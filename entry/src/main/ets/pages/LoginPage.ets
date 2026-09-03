@@ -29,9 +29,10 @@ struct LoginPage {
   build() {
     Column() {
       Row() {
-        Text('‹ 返回').onClick(() => router.back())
-        Text('登录').fontSize(20).fontWeight(FontWeight.Bold).margin({ left: 24 })
-      }.width('100%').height(52).padding({ left: 16 })
+        Text('‹').fontSize(32).fontColor('#1677C8').onClick(() => router.back())
+        Text('登录过早客').fontSize(20).fontWeight(FontWeight.Bold).margin({ left: 18 })
+      }.width('100%').height(60).padding({ left: 16 }).backgroundColor(Color.White)
+      Text('登录后即可查看个人资料、收藏和参与讨论').fontSize(13).fontColor('#7B8794').margin({ top: 12, bottom: 8 })
       Web({ src: LOGIN_URL, controller: this.controller })
         .javaScriptAccess(true)
         .domStorageAccess(true)
