@@ -71,7 +71,7 @@ struct Index {
           ForEach(this.topics, (topic: Topic) => {
             ListItem() {
               Row({ space: 14 }) {
-                Image(topic.avatar.length > 0 ? topic.avatar : $r('app.media.startIcon'))
+                Image(topic.avatar.length > 0 ? topic.avatar : $r('app.media.pixel_icon'))
                   .width(46).height(46).borderRadius(23).objectFit(ImageFit.Cover)
                 Column({ space: 6 }) {
                   Text(topic.title).fontSize(16).fontWeight(FontWeight.Medium).fontColor('#182433').maxLines(2)
