@@ -8,6 +8,7 @@ struct Index {
   @State topics: Array<Topic> = [];
   @State loading: boolean = true;
   @State message: string = '';
+  @State tab: string = '';
 
   aboutToAppear(): void {
     this.loadTopics();
@@ -17,7 +18,7 @@ struct Index {
     this.loading = true;
     this.message = '';
     try {
-      this.topics = await GuozaokeService.topics();
+      this.topics = await GuozaokeService.topics(this.tab);
       if (this.topics.length === 0) {
         this.message = '暂无内容，点击右上角刷新';
       }
@@ -33,6 +34,10 @@ struct Index {
         Text('过早客').fontSize(24).fontWeight(FontWeight.Bold).fontColor(Color.White)
         Blank()
         Text('刷新').fontColor(Color.White).onClick(() => this.loadTopics())
+        Text('搜索').fontColor(Color.White).margin({ left: 16 })
+          .onClick(() => router.pushUrl({ url: 'pages/SearchPage' }))
+        Text('通知').fontColor(Color.White).margin({ left: 16 })
+          .onClick(() => router.pushUrl({ url: 'pages/NotificationsPage' }))
       }
       .width('100%').height(56).padding({ left: 18, right: 18 }).backgroundColor('#2389E8')
 
@@ -68,12 +73,14 @@ struct Index {
       Row() {
         Text('首页').fontColor('#2389E8').layoutWeight(1).textAlign(TextAlign.Center)
         Text('节点').layoutWeight(1).textAlign(TextAlign.Center)
+          .onClick(() => router.pushUrl({ url: 'pages/NodesPage' }))
         Text(GuozaokeService.isLoggedIn() ? '个人中心' : '登录')
           .layoutWeight(1).textAlign(TextAlign.Center)
-          .onClick(() => router.pushUrl({ url: 'pages/LoginPage' }))
+          .onClick(() => router.pushUrl({ url: GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage' }))
       }
       .width('100%').height(54).backgroundColor(Color.White)
       .border({ width: { top: 1 }, color: '#EEEEEE' })
+      Button('发表主题').position({ x: '78%', y: '82%' }).onClick(() => router.pushUrl({ url: 'pages/NewTopicPage' }))
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
   }
 }

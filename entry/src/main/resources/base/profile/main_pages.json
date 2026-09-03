@@ -2,6 +2,13 @@
   "src": [
     "pages/Index",
     "pages/LoginPage",
-    "pages/TopicPage"
+    "pages/TopicPage",
+    "pages/TopicListPage",
+    "pages/ProfilePage",
+    "pages/NodesPage",
+    "pages/SearchPage",
+    "pages/NotificationsPage",
+    "pages/SettingsPage",
+    "pages/NewTopicPage"
   ]
 }

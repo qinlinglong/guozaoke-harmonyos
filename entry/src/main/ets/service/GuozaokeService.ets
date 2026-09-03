@@ -28,6 +28,10 @@ export class GuozaokeService {
     return GuozaokeService.cookie().split(';').some((item: string) => item.trim().startsWith('user='));
   }
 
+  static clearCookies(): void {
+    try { webview.WebCookieManager.clearAllCookiesSync(); } catch (_) { }
+  }
+
   static async get(path: string): Promise<string> {
     const request: http.HttpRequest = http.createHttp();
     try {
@@ -70,5 +74,25 @@ export class GuozaokeService {
     const content: string = firstMatch(html,
       /<div[^>]*class="[^"]*ui-content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/);
     return content.length > 0 ? content : '暂时无法解析主题内容';
+  }
+
+  static async nodes(): Promise<Array<string>> {
+    const html: string = await GuozaokeService.get('/nodes');
+    const result: Array<string> = [];
+    const links: Array<string> = html.match(/<a[^>]*href="\/node\/[^\"]+"[^>]*>[\s\S]*?<\/a>/g) ?? [];
+    links.forEach((link: string) => { const value: string = firstMatch(link, />([\s\S]*?)<\/a>/); if (value.length > 0 && result.indexOf(value) < 0) result.push(value); });
+    return result;
+  }
+
+  static async search(query: string): Promise<Array<Topic>> {
+    return GuozaokeService.topics(`search=${encodeURIComponent(query)}`);
+  }
+
+  static async notifications(): Promise<Array<string>> {
+    const html: string = await GuozaokeService.get('/notifications');
+    const result: Array<string> = [];
+    const items: Array<string> = html.match(/<li[^>]*>[\s\S]*?<\/li>/g) ?? [];
+    items.forEach((item: string) => { const value: string = decodeHtml(item.replace(/<[^>]+>/g, '').trim()); if (value.length > 0) result.push(value); });
+    return result;
   }
 }
