@@ -1,4 +1,5 @@
 import { router } from '@kit.ArkUI';
+import { webview } from '@kit.ArkWeb';
 import { Topic } from '../model/Topic';
 import { GuozaokeService } from '../service/GuozaokeService';
 
@@ -9,6 +10,8 @@ struct Index {
   @State loading: boolean = true;
   @State message: string = '';
   @State tab: string = '';
+  @State webFallback: boolean = false;
+  controller: webview.WebviewController = new webview.WebviewController();
 
   aboutToAppear(): void {
     try {
@@ -24,10 +27,12 @@ struct Index {
     try {
       this.topics = await GuozaokeService.topics(this.tab);
       if (this.topics.length === 0) {
-        this.message = '暂无内容，点击右上角刷新';
+        this.message = '正在加载社区内容…';
+        this.webFallback = true;
       }
     } catch (_) {
-      this.message = '加载失败，请检查网络后重试';
+      this.message = '原生接口暂时不可用，正在打开社区页面…';
+      this.webFallback = true;
     }
     this.loading = false;
   }
@@ -50,6 +55,9 @@ struct Index {
 
       if (this.loading) {
         LoadingProgress().margin({ top: 80 })
+      } else if (this.webFallback) {
+        Web({ src: this.tab.length > 0 ? `https://www.guozaoke.com/?tab=${this.tab}` : 'https://www.guozaoke.com/', controller: this.controller })
+          .javaScriptAccess(true).domStorageAccess(true).layoutWeight(1).width('100%')
       } else if (this.message.length > 0) {
         Text(this.message).fontColor('#777777').margin({ top: 80 })
       } else {
@@ -86,11 +94,13 @@ struct Index {
       }
 
       Row() {
-        Text('⌂\n首页').fontColor('#1677C8').layoutWeight(1).textAlign(TextAlign.Center).fontSize(13)
-        Text('◇\n节点').layoutWeight(1).textAlign(TextAlign.Center).fontSize(13)
+        Column({ space: 3 }) { Text('⌂').fontSize(22).fontColor('#1677C8'); Text('首页').fontSize(12).fontColor('#1677C8'); }
+          .layoutWeight(1).alignItems(HorizontalAlign.Center)
+        Column({ space: 3 }) { Text('◇').fontSize(22).fontColor('#647383'); Text('节点').fontSize(12).fontColor('#647383'); }
+          .layoutWeight(1).alignItems(HorizontalAlign.Center)
           .onClick(() => router.pushUrl({ url: 'pages/NodesPage' }))
-        Text(GuozaokeService.isLoggedIn() ? '●\n我的' : '●\n登录')
-          .layoutWeight(1).textAlign(TextAlign.Center).fontSize(13)
+        Column({ space: 3 }) { Text('●').fontSize(22).fontColor('#647383'); Text(GuozaokeService.isLoggedIn() ? '我的' : '登录').fontSize(12).fontColor('#647383'); }
+          .layoutWeight(1).alignItems(HorizontalAlign.Center)
           .onClick(() => router.pushUrl({ url: GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage' }))
       }
       .width('100%').height(64).backgroundColor(Color.White).padding({ top: 6, bottom: 6 })
