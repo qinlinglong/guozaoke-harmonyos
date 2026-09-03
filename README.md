@@ -12,7 +12,7 @@
 
 ## 构建
 
-需要 DevEco Studio 6.0+、HarmonyOS API 26 SDK 和 `devecocli`：
+需要 DevEco Studio 6.0+、HarmonyOS API 24+ SDK 和 `devecocli`：
 
 ```bash
 devecocli build
