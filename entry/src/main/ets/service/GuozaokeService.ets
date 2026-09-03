@@ -40,6 +40,9 @@ export class GuozaokeService {
         header: {
           'User-Agent': 'Mozilla/5.0 (HarmonyOS; Mobile) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
           'Accept-Language': 'zh-CN,zh;q=0.9',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Referer': BASE_URL + '/',
+          'Cache-Control': 'no-cache',
           'Cookie': GuozaokeService.cookie()
         },
         expectDataType: http.HttpDataType.STRING
@@ -60,7 +63,7 @@ export class GuozaokeService {
       topic.title = firstMatch(card, /<h3[^>]*class="[^"]*title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
       topic.author = firstMatch(card, /class="[^"]*username[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
       topic.node = firstMatch(card, /class="[^"]*node[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      topic.avatar = firstMatch(card, /<img[^>]*class="[^"]*avatar[^"]*"[^>]*src="([^"]+)"/).replace('//static/', '/static/');
+      topic.avatar = firstMatch(card, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/).replace('//static/', '/static/');
       topic.replies = firstMatch(card, /class="[^"]*count[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/) || '0';
       if (topic.id.length > 0 && topic.title.length > 0) {
         result.push(topic);

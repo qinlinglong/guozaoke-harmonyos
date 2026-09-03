@@ -11,6 +11,10 @@ struct Index {
   @State tab: string = '';
 
   aboutToAppear(): void {
+    try {
+      const params = router.getParams() as Record<string, string>;
+      this.tab = params && params.tab ? params.tab : '';
+    } catch (_) { this.tab = ''; }
     this.loadTopics();
   }
 
@@ -46,6 +50,12 @@ struct Index {
       } else if (this.message.length > 0) {
         Text(this.message).fontColor('#777777').margin({ top: 80 })
       } else {
+        Row({ space: 18 }) {
+          Text('最新').fontColor(this.tab === 'latest' ? '#2389E8' : '#777777').onClick(() => { this.tab = 'latest'; this.loadTopics(); })
+          Text('精华').fontColor(this.tab === 'elite' ? '#2389E8' : '#777777').onClick(() => { this.tab = 'elite'; this.loadTopics(); })
+          Text('关注').fontColor(this.tab === 'follows' ? '#2389E8' : '#777777').onClick(() => { this.tab = 'follows'; this.loadTopics(); })
+          Text('全部').fontColor(this.tab === '' ? '#2389E8' : '#777777').onClick(() => { this.tab = ''; this.loadTopics(); })
+        }.padding({ left: 16, top: 10, bottom: 10 })
         List({ space: 1 }) {
           ForEach(this.topics, (topic: Topic) => {
             ListItem() {
