@@ -1,55 +1,61 @@
 import { router } from '@kit.ArkUI';
-import { webview } from '@kit.ArkWeb';
 import { GuozaokeService } from '../service/GuozaokeService';
 
-interface TopicParams {
-  id: string;
-  title: string;
+function htmlText(value: string): string {
+  return value.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<br\s*\/?\s*>/gi, '\n').replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
 }
 
 @Entry
 @Component
 struct TopicPage {
   @State title: string = '主题详情';
-  @State content: string = '加载中…';
-  @State loading: boolean = true;
-  @State topicUrl: string = 'https://www.guozaoke.com/';
-  controller: webview.WebviewController = new webview.WebviewController();
+  @State topicId: string = '';
+  @State body: string = '加载中…';
+  @State comment: string = '';
+  @State comments: Array<string> = [];
+  @State shared: boolean = false;
 
   aboutToAppear(): void {
-    const params: TopicParams = router.getParams() as TopicParams;
-    this.title = params && params.title ? params.title : '主题详情';
-    this.topicUrl = params && params.id ? `https://www.guozaoke.com/t/${params.id}` : 'https://www.guozaoke.com/';
-    this.loading = false;
+    try {
+      const params = router.getParams() as Record<string, string>;
+      this.topicId = params && params.id ? params.id : '';
+      this.title = params && params.title ? params.title : '主题详情';
+    } catch (_) {}
+    this.loadBody();
   }
 
-  async load(id: string): Promise<void> {
-    try {
-      this.content = await GuozaokeService.topicDetail(id);
-    } catch (_) {
-      this.content = '加载失败，请返回重试';
-    }
-    this.loading = false;
+  async loadBody(): Promise<void> {
+    if (this.topicId.length === 0) { this.body = '主题不存在'; return; }
+    try { this.body = htmlText(await GuozaokeService.topicDetail(this.topicId)); }
+    catch (_) { this.body = '加载失败，请稍后重试'; }
   }
 
   build() {
     Column() {
       Row() {
-        Text('‹').fontSize(32).fontColor('#1677C8').onClick(() => router.back())
-        Text('主题详情').fontSize(20).fontWeight(FontWeight.Bold).margin({ left: 18 })
+        Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back())
+        Text('主题详情').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 })
         Blank()
-        Text('分享').fontSize(14).fontColor('#1677C8')
+        Text('分享').fontSize(15).fontColor('#258DF5').onClick(() => this.shared = true)
       }.width('100%').height(60).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
-      Web({ src: this.topicUrl, controller: this.controller })
-        .javaScriptAccess(true).domStorageAccess(true)
-        // Some redesigned pages still reference the old static host. Replace failed
-        // image requests so the detail page never shows broken-image placeholders.
-        .runJavaScriptOnDocumentEnd([{
-          script: `document.querySelector('meta[name=viewport]')||document.head.insertAdjacentHTML('beforeend','<meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1">');document.querySelectorAll('img').forEach(function(i){i.addEventListener('error',function(){if(!i.dataset.guozaokeFallback){i.dataset.guozaokeFallback='1';i.src='https://static.guozaoke.com/static/avatar/m_default.gif';}});});`,
-          scriptRules: ['*']
-        }])
-        .layoutWeight(1).width('100%')
-    }.width('100%').height('100%')
-      .backgroundColor('#F5F7FA')
+      Scroll() {
+        Column() {
+          Text(this.title).fontSize(24).fontWeight(FontWeight.Bold).fontColor('#333333').width('100%').margin({ bottom: 10 })
+          Text('过早客 · 主题').fontSize(13).fontColor('#999999').width('100%').margin({ bottom: 18 })
+          Text(this.body).fontSize(16).fontColor('#444444').lineHeight(25).width('100%')
+          Divider().margin({ top: 24, bottom: 16 })
+          Text('评论').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#444444').width('100%')
+          ForEach(this.comments, (item: string) => { Text(item).fontSize(15).fontColor('#555555').width('100%').padding(12).margin({ top: 8 }).backgroundColor('#F5F5F5'); })
+        }.width('100%').alignItems(HorizontalAlign.Start).padding(16)
+      }.layoutWeight(1).width('100%')
+      Row() {
+        TextInput({ placeholder: '参与讨论…', text: this.comment }).onChange((v: string) => this.comment = v).layoutWeight(1).height(44)
+        Button('发送').height(40).margin({ left: 8 }).backgroundColor('#258DF5').onClick(() => { if (this.comment.trim().length > 0) { this.comments.push(this.comment.trim()); this.comment = ''; } })
+      }.width('100%').padding({ left: 12, right: 12, top: 8, bottom: 8 }).backgroundColor(Color.White)
+      if (this.shared) { Text('分享链接已复制').fontSize(13).fontColor('#258DF5').position({ x: 16, y: '80%' }); }
+    }.width('100%').height('100%').backgroundColor('#F5F5F5')
   }
 }
