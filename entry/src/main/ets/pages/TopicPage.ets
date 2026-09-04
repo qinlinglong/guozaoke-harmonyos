@@ -24,6 +24,7 @@ struct TopicPage {
   @State status: string = '';
   @State replyTarget: string = '';
   @State favorite: boolean = false;
+  @State composerOpen: boolean = false;
 
   aboutToAppear(): void {
     try {
@@ -96,6 +97,7 @@ struct TopicPage {
                     .onClick(() => {
                       this.replyTarget = item.author.length > 0 ? item.author : `用户 ${index + 1}`;
                       this.comment = `@${this.replyTarget} `;
+                      this.composerOpen = true;
                     })
                   Text(item.voted ? '已赞' : '赞').fontSize(12).fontColor(item.voted ? '#F59E0B' : '#7B8794')
                     .padding({ left: 10, right: 6, top: 4, bottom: 4 }).onClick(async () => {
@@ -111,21 +113,34 @@ struct TopicPage {
           }, (item: CommentItem, index: number) => `${item.id}-${index}`)
         }.width('100%').alignItems(HorizontalAlign.Start).padding({ left: 12, right: 12, top: 12, bottom: 16 })
       }.layoutWeight(1).width('100%')
-      Row() {
-        TextInput({ placeholder: this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '参与讨论…', text: this.comment }).onChange((v: string) => this.comment = v).layoutWeight(1).height(44)
-        Button('发送').height(40).margin({ left: 8 }).backgroundColor('#258DF5').onClick(async () => {
-          const value = this.comment.trim(); if (value.length === 0 || this.topicId.length === 0) return;
-          this.status = '发送中…';
-          const content = this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
-          try {
-            if (await GuozaokeService.comment(this.topicId, content)) {
-              const mine: CommentItem = new CommentItem(); mine.author = '我'; mine.floor = '#新'; mine.content = content;
-              this.comments = this.comments.concat([mine]); this.comment = ''; this.replyTarget = ''; this.status = '评论成功';
-            } else this.status = '评论失败';
-          }
-          catch (_) { this.status = '评论失败'; }
-        })
-      }.width('100%').padding({ left: 12, right: 12, top: 8, bottom: 8 }).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
+      if (!this.composerOpen) {
+        Row() {
+          Text('回复').fontSize(16).fontColor('#258DF5').padding({ left: 12, right: 12, top: 10, bottom: 10 }).onClick(() => this.composerOpen = true)
+          Blank()
+          Text(this.favorite ? '已收藏' : '收藏').fontSize(14).fontColor('#7B8794').margin({ right: 18 }).onClick(async () => {
+            const ok = this.favorite ? await GuozaokeService.unfavorite(this.topicId) : await GuozaokeService.favorite(this.topicId);
+            if (ok) { this.favorite = !this.favorite; this.status = this.favorite ? '已加入收藏' : '已取消收藏'; }
+          })
+          Text('分享').fontSize(14).fontColor('#258DF5').margin({ right: 14 }).onClick(() => this.shared = true)
+        }.width('100%').height(56).padding({ left: 8 }).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
+      } else {
+        Row() {
+          Text('×').fontSize(24).fontColor('#9AA0A6').width(30).textAlign(TextAlign.Center).onClick(() => { this.composerOpen = false; this.replyTarget = ''; this.comment = ''; })
+          TextInput({ placeholder: this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '参与讨论…', text: this.comment }).onChange((v: string) => this.comment = v).layoutWeight(1).height(44)
+          Button('发送').height(40).margin({ left: 8, right: 8 }).backgroundColor('#258DF5').onClick(async () => {
+            const value = this.comment.trim(); if (value.length === 0 || this.topicId.length === 0) return;
+            this.status = '发送中…';
+            const content = this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
+            try {
+              if (await GuozaokeService.comment(this.topicId, content)) {
+                const mine: CommentItem = new CommentItem(); mine.author = '我'; mine.floor = '#新'; mine.content = content;
+                this.comments = this.comments.concat([mine]); this.comment = ''; this.replyTarget = ''; this.composerOpen = false; this.status = '评论成功';
+              } else this.status = '评论失败';
+            }
+            catch (_) { this.status = '评论失败'; }
+          })
+        }.width('100%').height(56).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
+      }
       if (this.status.length > 0) { Text(this.status).fontSize(13).fontColor('#258DF5').margin({ bottom: 6 }); }
       if (this.shared) { Text('分享链接已复制').fontSize(13).fontColor('#258DF5').position({ x: 16, y: '80%' }); }
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
