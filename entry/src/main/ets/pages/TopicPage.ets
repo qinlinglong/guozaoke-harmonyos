@@ -44,20 +44,33 @@ struct TopicPage {
   build() {
     Column() {
       Row() {
-        Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back())
-        Text('主题详情').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 })
+        Text('‹').fontSize(30).fontColor('#258DF5').width(44).textAlign(TextAlign.Center).onClick(() => router.back())
+        Text('主题详情').fontSize(18).fontColor('#333333').fontWeight(FontWeight.Medium).margin({ left: 8 })
         Blank()
-        Text('分享').fontSize(15).fontColor('#258DF5').onClick(() => this.shared = true)
-      }.width('100%').height(60).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
+        Text('分享').fontSize(15).fontColor('#258DF5').padding({ left: 12, right: 12, top: 8, bottom: 8 }).onClick(() => this.shared = true)
+      }.width('100%').height(56).padding({ left: 8, right: 12 }).backgroundColor(Color.White)
       Scroll() {
         Column() {
-          Text(this.title).fontSize(24).fontWeight(FontWeight.Bold).fontColor('#333333').width('100%').margin({ bottom: 10 })
-          Text('过早客 · 主题').fontSize(13).fontColor('#999999').width('100%').margin({ bottom: 18 })
-          Text(this.body).fontSize(16).fontColor('#444444').lineHeight(25).width('100%')
-          Divider().margin({ top: 24, bottom: 16 })
-          Text('评论').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#444444').width('100%')
-          ForEach(this.comments, (item: string, index: number) => { Text(item).fontSize(15).fontColor('#555555').width('100%').padding(12).margin({ top: 8 }).backgroundColor('#F5F5F5'); }, (_: string, index: number) => `${index}`)
-        }.width('100%').alignItems(HorizontalAlign.Start).padding(16)
+          Column() {
+            Text(this.title).fontSize(20).fontWeight(FontWeight.Bold).fontColor('#202124').lineHeight(28).width('100%')
+            Text('过早客 · 主题').fontSize(13).fontColor('#8A9199').margin({ top: 8, bottom: 16 }).width('100%')
+            Text(this.body).fontSize(15).fontColor('#3C4043').lineHeight(24).width('100%')
+          }.width('100%').padding(18).backgroundColor(Color.White).borderRadius(10)
+          Row() {
+            Text(`评论 ${this.comments.length}`).fontSize(17).fontWeight(FontWeight.Medium).fontColor('#30343B')
+            Blank()
+            Text('按时间排序').fontSize(12).fontColor('#9AA0A6')
+          }.width('100%').padding({ top: 20, bottom: 10, left: 4, right: 4 })
+          ForEach(this.comments, (item: string, index: number) => {
+            Row() {
+              Image($r('app.media.default_avatar')).width(32).height(32).borderRadius(16).objectFit(ImageFit.Cover)
+              Column() {
+                Row() { Text(`用户 ${index + 1}`).fontSize(13).fontColor('#5F6368'); Blank(); Text(`#${index + 1}`).fontSize(12).fontColor('#A0A5AB'); }.width('100%')
+                Text(item).fontSize(15).fontColor('#3C4043').lineHeight(22).width('100%').margin({ top: 6 })
+              }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
+            }.width('100%').padding(14).backgroundColor(Color.White).borderRadius(8).margin({ bottom: 8 })
+          }, (_: string, index: number) => `${index}`)
+        }.width('100%').alignItems(HorizontalAlign.Start).padding({ left: 12, right: 12, top: 12, bottom: 16 })
       }.layoutWeight(1).width('100%')
       Row() {
         TextInput({ placeholder: '参与讨论…', text: this.comment }).onChange((v: string) => this.comment = v).layoutWeight(1).height(44)
@@ -67,7 +80,7 @@ struct TopicPage {
           try { if (await GuozaokeService.comment(this.topicId, value)) { this.comments.push(value); this.comment = ''; this.status = '评论成功'; } else this.status = '评论失败'; }
           catch (_) { this.status = '评论失败'; }
         })
-      }.width('100%').padding({ left: 12, right: 12, top: 8, bottom: 8 }).backgroundColor(Color.White)
+      }.width('100%').padding({ left: 12, right: 12, top: 8, bottom: 8 }).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
       if (this.status.length > 0) { Text(this.status).fontSize(13).fontColor('#258DF5').margin({ bottom: 6 }); }
       if (this.shared) { Text('分享链接已复制').fontSize(13).fontColor('#258DF5').position({ x: 16, y: '80%' }); }
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
