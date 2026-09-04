@@ -26,6 +26,7 @@ struct Index {
   async loadTopics(): Promise<void> {
     this.loading = true;
     this.message = '';
+    this.webFallback = false;
     try {
       const timeout = new Promise<Array<Topic>>((_, reject) => {
         setTimeout(() => reject(new Error('native request timeout')), 12000);
