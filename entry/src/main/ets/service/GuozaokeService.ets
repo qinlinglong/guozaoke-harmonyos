@@ -2,6 +2,8 @@ import { http } from '@kit.NetworkKit';
 import { webview } from '@kit.ArkWeb';
 import { Topic } from '../model/Topic';
 import { CommentItem } from '../model/CommentItem';
+import { NodeItem } from '../model/NodeItem';
+import { UserProfile } from '../model/UserProfile';
 
 export const BASE_URL: string = 'https://www.guozaoke.com';
 export const LOGIN_URL: string = `${BASE_URL}/login`;
@@ -22,7 +24,9 @@ function normalizeImageUrl(value: string): string {
   if (clean.startsWith('//')) return `https:${clean}`;
   if (clean.startsWith('/static/')) return `https://static.guozaoke.com${clean}`;
   if (clean.startsWith('/')) return `${BASE_URL}${clean}`;
-  return clean;
+  // The redesigned markup currently emits ...com//static/... URLs. ArkUI's
+  // image loader follows that malformed path as a protocol-relative redirect.
+  return clean.replace('https://static.guozaoke.com//', 'https://static.guozaoke.com/');
 }
 
 function avatarFromHtml(source: string): string {
@@ -103,13 +107,22 @@ export class GuozaokeService {
     const profile = await GuozaokeService.selfProfileUrl();
     const match = profile.match(/\/u\/([A-Za-z0-9_-]+)/);
     if (!match) return [];
-    return GuozaokeService.parseTopics(await GuozaokeService.get(`/u/${match[1]}/${kind}`));
+    return GuozaokeService.userTopicsFor(match[1], kind);
+  }
+
+  static async userTopicsFor(username: string, kind: string): Promise<Array<Topic>> {
+    const safeName = username.replace(/[^A-Za-z0-9_-]/g, '');
+    if (safeName.length === 0) return [];
+    return GuozaokeService.parseTopics(await GuozaokeService.get(`/u/${safeName}/${kind}`));
   }
 
   static async selfProfileUrl(): Promise<string> {
     try {
       const html = await GuozaokeService.get('/');
-      const path = firstMatch(html, /href="(\/u\/(?!0(?:["\/]))[A-Za-z0-9_-]+)"/);
+      // The first /u/ link on the home page usually belongs to a topic
+      // author. The authenticated account lives in the sidebar usercard.
+      const path = firstMatch(html,
+        /<div[^>]*class=["'][^"']*usercard[^"']*["'][\s\S]*?href=["'](\/u\/(?!0(?:["'\/]))[A-Za-z0-9_-]+)["']/i);
       return path.length > 0 ? `${BASE_URL}${path}` : `${BASE_URL}/`;
     } catch (_) {
       return `${BASE_URL}/`;
@@ -124,6 +137,27 @@ export class GuozaokeService {
       const avatarTag = html.match(/<(?:img|image)\b[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
       return avatarTag ? avatarFromHtml(avatarTag[0]) : '';
     } catch (_) { return ''; }
+  }
+
+  static async selfUsername(): Promise<string> {
+    const profileUrl = await GuozaokeService.selfProfileUrl();
+    const match = profileUrl.match(/\/u\/([A-Za-z0-9_-]+)/);
+    return match ? match[1] : '';
+  }
+
+  static async userProfile(username: string): Promise<UserProfile> {
+    const profile: UserProfile = new UserProfile();
+    const safeName = username.replace(/[^A-Za-z0-9_-]/g, '');
+    if (safeName.length === 0) return profile;
+    const html = await GuozaokeService.get(`/u/${safeName}`);
+    const profileBlock = html.match(/<div[^>]*class="[^"]*profile[^"]*"[\s\S]*?(?=<\/main>|<div[^>]*class="[^"]*sidebar)/i);
+    const scope = profileBlock ? profileBlock[0] : html;
+    const avatarTag = scope.match(/<(?:img|image)\b[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
+    profile.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
+    profile.username = firstMatch(scope, /class="[^"]*username[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span|a)>/i) || safeName;
+    profile.number = firstMatch(scope, /class="[^"]*number[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span)>/i);
+    profile.since = firstMatch(scope, /class="[^"]*since[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span)>/i);
+    return profile;
   }
 
   static async topicDetail(id: string): Promise<string> {
@@ -143,22 +177,26 @@ export class GuozaokeService {
       html = await GuozaokeService.get(`/t/${id}`);
     }
     const result: Array<CommentItem> = [];
-    const blocks: Array<string> = html.match(/<div[^>]*class="[^"]*reply-item[^"]*"[\s\S]*?(?=<div[^>]*class="[^"]*reply-item|<\/div>\s*<\/div>\s*<\/div>)/gi) ?? [];
+    const blocks: Array<string> = html.match(/<div[^>]*class=["'][^"']*reply-item[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*reply-item|<div[^>]*class=["'][^"']*topic-reply-create|<\/body>)/gi) ?? [];
     blocks.forEach((block: string, index: number) => {
       const item: CommentItem = new CommentItem();
       item.id = firstMatch(block, /(?:id|data-id)="(?:reply|comment)?-?(\d+)"/i) || `${index + 1}`;
-      item.author = firstMatch(block, /class="[^"]*reply-username[^"]*"[\s\S]*?class="[^"]*username[^"]*"[^>]*>([\s\S]*?)<\/span>/i) || '用户';
-      item.time = firstMatch(block, /class="[^"]*time[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
-      item.floor = firstMatch(block, /class="[^"]*floor[^"]*"[^>]*>([\s\S]*?)<\/span>/i) || `#${index + 1}`;
-      const avatar = firstMatch(block, /<img[^>]*class="[^"]*avatar[^"]*"[^>]*src="([^"]+)"/i) || firstMatch(block, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/i);
-      item.avatar = normalizeImageUrl(avatar);
-      const vote = block.match(/<a[^>]*class="[^"]*J_replyVote[^"]*"[^>]*href="([^"]*)"[^>]*data-count="(\d+)"/i);
+      item.author = firstMatch(block, /<a[^>]*class=["'][^"']*reply-username[^"']*["'][^>]*>([\s\S]*?)<\/a>/i) ||
+        firstMatch(block, /class=["'][^"']*username[^"']*["'][^>]*>([\s\S]*?)<\/(?:span|a)>/i) || '用户';
+      item.time = firstMatch(block, /class=["'][^"']*time[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+      item.floor = firstMatch(block, /class=["'][^"']*floor[^"']*["'][^>]*>([\s\S]*?)<\/span>/i) || `#${index + 1}`;
+      const avatarTag = block.match(/<img[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
+      item.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
+      const vote = block.match(/<a[^>]*class=["'][^"']*J_replyVote[^"']*["'][^>]*href=["']([^"']*)["'][^>]*data-count=["'](\d+)["']/i);
       if (vote) { item.voteUrl = vote[1]; item.voteCount = Number(vote[2]); }
-      item.content = firstMatch(block, /<span[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
+      item.content = firstMatch(block, /<(?:span|div)[^>]*class=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/(?:span|div)>/i);
       if (item.content.length > 0 && item.content.length <= 4000) result.push(item);
     });
     if (result.length === 0) {
-      const replies: Array<string> = html.match(/<(?:span|div|p|article)[^>]*class="[^\"]*(?:content|comment|reply)[^\"]*"[^>]*>[\s\S]*?<\/(?:span|div|p|article)>/gi) ?? [];
+      // Only accept explicit alternative reply-content classes. Matching a
+      // generic "content" class also captures the topic body, composer and
+      // sidebar cards, which used to create fake comments on zero-reply posts.
+      const replies: Array<string> = html.match(/<(?:span|div|p|article)[^>]*class=["'][^"']*(?:comment-content|reply-content)[^"']*["'][^>]*>[\s\S]*?<\/(?:span|div|p|article)>/gi) ?? [];
       replies.forEach((reply: string, index: number) => {
         const item: CommentItem = new CommentItem();
         item.id = `${index + 1}`;
@@ -196,13 +234,23 @@ export class GuozaokeService {
   }
 
   static async comment(id: string, content: string): Promise<boolean> {
-    const response = await GuozaokeService.post(`/t/${id}`, `tid=${encodeURIComponent(id)}&content=${encodeURIComponent(content)}`);
+    const token = GuozaokeService.xsrf();
+    const response = await GuozaokeService.post(`/t/${id}`, `tid=${encodeURIComponent(id)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`);
     return response.length > 0;
   }
 
-  static async newTopic(title: string, content: string): Promise<boolean> {
-    const response = await GuozaokeService.post('/new', `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`);
+  static async newTopic(nodeCode: string, title: string, content: string): Promise<boolean> {
+    const safeCode = nodeCode.replace(/[^A-Za-z0-9_-]/g, '');
+    if (safeCode.length === 0) return false;
+    const token = GuozaokeService.xsrf();
+    const response = await GuozaokeService.post(`/t/create/${safeCode}`, `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`);
     return response.length > 0;
+  }
+
+  static xsrf(): string {
+    const item = GuozaokeService.cookie().split(';').find((part: string) => part.trim().startsWith('_xsrf='));
+    if (!item) return '';
+    return item.trim().substring('_xsrf='.length);
   }
 
   static async post(path: string, form: string): Promise<string> {
@@ -220,16 +268,22 @@ export class GuozaokeService {
     } finally { request.destroy(); }
   }
 
-  static async nodes(): Promise<Array<string>> {
+  static async nodes(): Promise<Array<NodeItem>> {
     const html: string = await GuozaokeService.get('/nodes');
-    const result: Array<string> = [];
+    const result: Array<NodeItem> = [];
     const links: Array<string> = html.match(/<a[^>]*href="\/node\/[^\"]+"[^>]*>[\s\S]*?<\/a>/g) ?? [];
-    links.forEach((link: string) => { const value: string = firstMatch(link, />([\s\S]*?)<\/a>/); if (value.length > 0 && result.indexOf(value) < 0) result.push(value); });
+    links.forEach((link: string) => {
+      const item: NodeItem = new NodeItem();
+      item.title = firstMatch(link, />([\s\S]*?)<\/a>/);
+      item.code = firstMatch(link, /href="\/node\/([^\"?#]+)(?:[?#][^\"]*)?"/);
+      if (item.title.length > 0 && item.code.length > 0 && !result.some((value: NodeItem) => value.code === item.code)) result.push(item);
+    });
     return result;
   }
 
-  static async search(query: string): Promise<Array<Topic>> {
-    return GuozaokeService.topics(`search=${encodeURIComponent(query)}`);
+  static async nodeTopics(code: string): Promise<Array<Topic>> {
+    const safeCode = code.replace(/[^A-Za-z0-9_-]/g, '');
+    return safeCode.length > 0 ? GuozaokeService.parseTopics(await GuozaokeService.get(`/node/${safeCode}`)) : [];
   }
 
   static async notifications(): Promise<Array<string>> {

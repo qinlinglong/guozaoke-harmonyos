@@ -8,7 +8,7 @@ struct AboutPage {
       Row() {
         Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back())
         Text('关于过早客').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 })
-      }.width('100%').height(60).padding({ left: 16 }).backgroundColor(Color.White)
+      }.width('100%').height(60).flexShrink(0).padding({ left: 16 }).backgroundColor(Color.White)
       Column() {
         Image($r('app.media.pixel_icon')).width(88).height(88).borderRadius(20).margin({ bottom: 16 })
         Text('过早客').fontSize(24).fontWeight(FontWeight.Bold).fontColor('#30343B')

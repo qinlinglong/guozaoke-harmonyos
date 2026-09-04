@@ -1,4 +1,5 @@
 import { router } from '@kit.ArkUI';
+import { pasteboard } from '@kit.BasicServicesKit';
 import { GuozaokeService } from '../service/GuozaokeService';
 import { CommentItem } from '../model/CommentItem';
 
@@ -35,6 +36,13 @@ struct TopicPage {
     this.loadBody();
   }
 
+  pageTransition() {
+    // The device default transition briefly scales/slides the detail card from
+    // the centre. A zero-duration page transition keeps the layout stationary.
+    PageTransitionEnter({ type: RouteType.None, duration: 0 })
+    PageTransitionExit({ type: RouteType.None, duration: 0 })
+  }
+
   async loadBody(): Promise<void> {
     if (this.topicId.length === 0) { this.body = '主题不存在'; return; }
     try {
@@ -50,14 +58,24 @@ struct TopicPage {
     catch (_) { this.body = '加载失败，请稍后重试'; }
   }
 
+  async copyShareLink(): Promise<void> {
+    if (this.topicId.length === 0) return;
+    try {
+      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, `https://www.guozaoke.com/t/${this.topicId}`);
+      await pasteboard.getSystemPasteboard().setData(data);
+      this.shared = true;
+      setTimeout(() => this.shared = false, 1800);
+    } catch (_) { this.status = '复制分享链接失败'; }
+  }
+
   build() {
     Column() {
       Row() {
         Text('‹').fontSize(30).fontColor('#258DF5').width(44).textAlign(TextAlign.Center).onClick(() => router.back())
         Text('主题详情').fontSize(18).fontColor('#333333').fontWeight(FontWeight.Medium).margin({ left: 8 })
         Blank()
-        Text('分享').fontSize(15).fontColor('#258DF5').padding({ left: 12, right: 12, top: 8, bottom: 8 }).onClick(() => this.shared = true)
-      }.width('100%').height(56).padding({ left: 8, right: 12 }).backgroundColor(Color.White)
+        Text('分享').fontSize(15).fontColor('#258DF5').padding({ left: 12, right: 12, top: 8, bottom: 8 }).onClick(() => this.copyShareLink())
+      }.width('100%').height(56).flexShrink(0).padding({ left: 8, right: 12 }).backgroundColor(Color.White)
       Scroll() {
         Column() {
           Column() {
@@ -111,7 +129,8 @@ struct TopicPage {
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
             }.width('100%').padding(14).backgroundColor(Color.White).borderRadius(8).margin({ bottom: 8 })
           }, (item: CommentItem, index: number) => `${item.id}-${index}`)
-        }.width('100%').alignItems(HorizontalAlign.Start).padding({ left: 12, right: 12, top: 12, bottom: 16 })
+        }.width('100%').constraintSize({ minHeight: '100%' }).justifyContent(FlexAlign.Start)
+          .alignItems(HorizontalAlign.Start).padding({ left: 12, right: 12, top: 12, bottom: 16 })
       }.layoutWeight(1).width('100%')
       if (!this.composerOpen) {
         Row() {
@@ -121,8 +140,8 @@ struct TopicPage {
             const ok = this.favorite ? await GuozaokeService.unfavorite(this.topicId) : await GuozaokeService.favorite(this.topicId);
             if (ok) { this.favorite = !this.favorite; this.status = this.favorite ? '已加入收藏' : '已取消收藏'; }
           })
-          Text('分享').fontSize(14).fontColor('#258DF5').margin({ right: 14 }).onClick(() => this.shared = true)
-        }.width('100%').height(56).padding({ left: 8 }).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
+          Text('分享').fontSize(14).fontColor('#258DF5').margin({ right: 14 }).onClick(() => this.copyShareLink())
+        }.width('100%').height(56).flexShrink(0).padding({ left: 8 }).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
       } else {
         Row() {
           Text('×').fontSize(24).fontColor('#9AA0A6').width(30).textAlign(TextAlign.Center).onClick(() => { this.composerOpen = false; this.replyTarget = ''; this.comment = ''; })
@@ -139,7 +158,7 @@ struct TopicPage {
             }
             catch (_) { this.status = '评论失败'; }
           })
-        }.width('100%').height(56).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
+        }.width('100%').height(56).flexShrink(0).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
       }
       if (this.status.length > 0) { Text(this.status).fontSize(13).fontColor('#258DF5').margin({ bottom: 6 }); }
       if (this.shared) { Text('分享链接已复制').fontSize(13).fontColor('#258DF5').position({ x: 16, y: '80%' }); }

@@ -37,10 +37,11 @@ export default class EntryAbility extends UIAbility {
     // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
-    // Draw the app behind the system bars so the home toolbar reaches the
-    // top edge instead of leaving the default black status-bar strip.
+    // Match the status bar to the app bar while keeping ArkUI content inside
+    // the tappable safe area. True edge-to-edge layout caused the first 44vp
+    // of every toolbar to be consumed by the status-bar inset on this device.
     windowStage.getMainWindow().then((mainWindow: window.Window) => {
-      mainWindow.setWindowLayoutFullScreen(true);
+      mainWindow.setWindowLayoutFullScreen(false);
       mainWindow.setWindowSystemBarEnable(['status', 'navigation']);
       mainWindow.setWindowSystemBarProperties({
         statusBarColor: '#258DF5',

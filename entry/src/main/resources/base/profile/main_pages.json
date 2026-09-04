@@ -9,6 +9,7 @@
     "pages/SearchPage",
     "pages/NotificationsPage",
     "pages/SettingsPage",
-    "pages/NewTopicPage"
+    "pages/NewTopicPage",
+    "pages/AboutPage"
   ]
 }

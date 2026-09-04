@@ -3,6 +3,12 @@ import { webview } from '@kit.ArkWeb';
 import { Topic } from '../model/Topic';
 import { GuozaokeService } from '../service/GuozaokeService';
 
+interface DrawerRouteParams {
+  kind?: string;
+  id?: string;
+  title?: string;
+}
+
 @Entry
 @Component
 struct Index {
@@ -14,7 +20,27 @@ struct Index {
   @State challengeReady: boolean = false;
   @State drawerOpen: boolean = false;
   @State selfAvatar: string = '';
+  @State selfName: string = '';
   controller: webview.WebviewController = new webview.WebviewController();
+
+  private closeDrawer(): void {
+    // Keep the overlay alive until the current pointer sequence has finished.
+    // Removing it synchronously lets the release event hit a topic underneath.
+    setTimeout(() => this.drawerOpen = false, 80);
+  }
+
+  private openFromDrawer(url: string, params: DrawerRouteParams = {}): void {
+    this.drawerOpen = false;
+    setTimeout(() => router.pushUrl({ url, params }), 80);
+  }
+
+  onBackPress(): boolean {
+    if (this.drawerOpen) {
+      this.drawerOpen = false;
+      return true;
+    }
+    return false;
+  }
 
   aboutToAppear(): void {
     this.drawerOpen = false;
@@ -24,6 +50,7 @@ struct Index {
     } catch (_) { this.tab = ''; }
     if (GuozaokeService.isLoggedIn()) {
       GuozaokeService.selfAvatar().then((value: string) => this.selfAvatar = value);
+      GuozaokeService.selfUsername().then((value: string) => this.selfName = value);
     }
     this.loadTopics();
     // Do not leave the native page blocked if the anti-bot bootstrap is slow
@@ -78,7 +105,7 @@ struct Index {
           .width(44).height(56).justifyContent(FlexAlign.Center)
           .onClick(() => router.pushUrl({ url: 'pages/NotificationsPage' }))
       }
-      .width('100%').height(56).padding({ left: 18, right: 18 }).backgroundColor('#258DF5')
+      .width('100%').height(56).flexShrink(0).padding({ left: 18, right: 18 }).backgroundColor('#258DF5')
 
       if (this.loading) {
         LoadingProgress().margin({ top: 80 })
@@ -143,44 +170,52 @@ struct Index {
 
       Image($r('app.media.pixel_icon')).width(46).height(46).borderRadius(23)
         .position({ x: '84%', y: '84%' }).shadow({ radius: 8, color: '#55000000', offsetY: 3 })
-        .onClick(() => router.pushUrl({ url: 'pages/NewTopicPage' }))
+        .onClick(() => router.pushUrl({ url: 'pages/NodesPage', params: { select: '1' } }))
       if (this.drawerOpen) {
-        Stack() {
-          // Full-screen scrim closes the drawer when tapping anywhere outside it.
-          Row().width('100%').height('100%').backgroundColor('#00000055')
-            .onClick(() => this.drawerOpen = false)
+        Row() {
           Column() {
             Column() {
               Row() {
                 Stack() {
                   Image($r('app.media.avatar_placeholder')).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover)
-                  if (this.selfAvatar.length > 0) { Image(this.selfAvatar).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover) }
-                }
+                  if (this.selfAvatar.length > 0) {
+                    Image(this.selfAvatar).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover)
+                  }
+                }.onClick(() => this.openFromDrawer(GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage'))
                 Blank()
                 Row() {
                   Image($r('app.media.ic_search')).width(22).height(22).objectFit(ImageFit.Contain)
                 }.width(42).height(42).justifyContent(FlexAlign.Center)
-                  .onClick(() => { this.drawerOpen = false; router.pushUrl({ url: 'pages/SearchPage' }); })
+                  .onClick(() => this.openFromDrawer('pages/SearchPage'))
                 Row() {
                   Text('×').fontSize(28).fontColor(Color.White)
                 }.width(42).height(42).justifyContent(FlexAlign.Center)
-                  .onClick(() => this.drawerOpen = false)
+                  .onClick(() => this.closeDrawer())
               }
                 .width('100%').padding({ top: 24, bottom: 14 })
-              Text(GuozaokeService.isLoggedIn() ? '过早客用户' : '未登录').fontSize(18).fontWeight(FontWeight.Medium).fontColor(Color.White).width('100%')
+              Text(GuozaokeService.isLoggedIn() ? (this.selfName.length > 0 ? this.selfName : '过早客用户') : '未登录').fontSize(18).fontWeight(FontWeight.Medium).fontColor(Color.White).width('100%')
+                .onClick(() => this.openFromDrawer(GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage'))
               Text(GuozaokeService.isLoggedIn() ? '已登录 · guozaoke.com' : '登录后参与讨论').fontSize(12).fontColor('#D7E8FF').width('100%').margin({ top: 6, bottom: 20 })
             }.width('100%').padding({ left: 20, right: 20 }).backgroundColor('#258DF5')
-            Column() {
-              this.drawerItem('ic_person', GuozaokeService.isLoggedIn() ? '个人中心' : '登录', () => router.pushUrl({ url: GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage' }))
-              this.drawerItem('ic_favorite', '我的收藏', () => router.pushUrl({ url: 'pages/TopicListPage', params: { kind: 'favorites' } }))
-              this.drawerItem('ic_nodes', '节点', () => router.pushUrl({ url: 'pages/NodesPage' }))
-              this.drawerItem('ic_help', '新手指南', () => router.pushUrl({ url: 'pages/TopicPage', params: { id: '2657', title: '新手指南' } }))
-              this.drawerItem('ic_settings_menu', '设置', () => router.pushUrl({ url: 'pages/SettingsPage' }))
-              this.drawerItem('ic_info', '关于', () => router.pushUrl({ url: 'pages/AboutPage' }))
-            }.width('100%').backgroundColor(Color.White)
-            Blank()
-          }.width('82%').height('100%').backgroundColor('#F5F6F8').shadow({ radius: 16, color: '#55000000', offsetX: 4 })
-        }.alignContent(Alignment.TopStart).position({ x: 0, y: 0 }).width('100%').height('100%')
+            Scroll() {
+              Column() {
+                this.drawerItem('ic_person', GuozaokeService.isLoggedIn() ? '个人中心' : '登录', () => this.openFromDrawer(GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage'))
+                this.drawerItem('ic_favorite', '我的收藏', () => this.openFromDrawer('pages/TopicListPage', { kind: 'favorites' }))
+                this.drawerItem('ic_nodes', '节点', () => this.openFromDrawer('pages/NodesPage'))
+                this.drawerItem('ic_help', '新手指南', () => this.openFromDrawer('pages/TopicPage', { id: '2657', title: '新手指南' }))
+                this.drawerItem('ic_info', '关于', () => this.openFromDrawer('pages/AboutPage'))
+              }.width('100%').constraintSize({ minHeight: '100%' }).justifyContent(FlexAlign.Start)
+                .backgroundColor(Color.White)
+            }.layoutWeight(1).width('100%').scrollBar(BarState.Auto)
+          }.width('78%').height('100%').backgroundColor('#F5F6F8').shadow({ radius: 16, color: '#55000000', offsetX: 4 })
+            .hitTestBehavior(HitTestMode.Default)
+          // The dismiss surface only occupies the area outside the drawer, so
+          // it can never steal taps from lower menu rows.
+          Row().layoutWeight(1).height('100%').backgroundColor('#00000055')
+            .hitTestBehavior(HitTestMode.Block)
+            .onClick(() => this.closeDrawer())
+        }.alignItems(VerticalAlign.Top).position({ x: 0, y: 0 }).width('100%').height('100%')
+          .hitTestBehavior(HitTestMode.Default)
       }
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
   }
