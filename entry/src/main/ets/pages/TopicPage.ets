@@ -29,7 +29,14 @@ struct TopicPage {
 
   async loadBody(): Promise<void> {
     if (this.topicId.length === 0) { this.body = '主题不存在'; return; }
-    try { this.body = htmlText(await GuozaokeService.topicDetail(this.topicId)); }
+    try {
+      const detail = await Promise.all([
+        GuozaokeService.topicDetail(this.topicId),
+        GuozaokeService.topicComments(this.topicId)
+      ]);
+      this.body = htmlText(detail[0]);
+      this.comments = detail[1];
+    }
     catch (_) { this.body = '加载失败，请稍后重试'; }
   }
 

@@ -111,6 +111,17 @@ export class GuozaokeService {
     return content.length > 0 ? content : '暂时无法解析主题内容';
   }
 
+  static async topicComments(id: string): Promise<Array<string>> {
+    const html: string = await GuozaokeService.get(`/t/${id}`);
+    const result: Array<string> = [];
+    const replies: Array<string> = html.match(/<span[^>]*class="[^\"]*content[^\"]*"[^>]*>[\s\S]*?<\/span>/g) ?? [];
+    replies.forEach((reply: string) => {
+      const value: string = decodeHtml(reply).replace(/\s+/g, ' ').trim();
+      if (value.length > 0 && value.length <= 2000) result.push(value);
+    });
+    return result;
+  }
+
   static async nodes(): Promise<Array<string>> {
     const html: string = await GuozaokeService.get('/nodes');
     const result: Array<string> = [];
