@@ -102,7 +102,15 @@ struct Index {
         .onClick(() => router.pushUrl({ url: 'pages/NewTopicPage' }))
       if (this.drawerOpen) {
         Stack() {
+          // Full-screen scrim closes the drawer when tapping anywhere outside it.
+          Row().width('100%').height('100%').backgroundColor('#00000055')
+            .onClick(() => this.drawerOpen = false)
           Column({ space: 14 }) {
+            Row() {
+              Text('×').fontSize(30).fontColor(Color.White)
+                .onClick(() => this.drawerOpen = false)
+              Blank()
+            }.width('100%').height(34)
             Image($r('app.media.default_avatar')).width(64).height(64).borderRadius(32).margin({ top: 24 })
             Text(GuozaokeService.isLoggedIn() ? '过早客用户' : '未登录').fontSize(16).fontColor(Color.White)
             Text(GuozaokeService.isLoggedIn() ? '个人中心' : '登录').fontSize(17).fontColor(Color.White).padding(14).width('100%')
@@ -112,7 +120,6 @@ struct Index {
             Text('设置').fontSize(17).fontColor(Color.White).padding(14).width('100%').onClick(() => router.pushUrl({ url: 'pages/SettingsPage' }))
             Blank()
           }.width('78%').height('100%').padding({ left: 20, right: 20 }).backgroundColor('#258DF5').alignItems(HorizontalAlign.Start)
-          Row().width('22%').height('100%').backgroundColor('#00000055').onClick(() => this.drawerOpen = false)
         }.alignContent(Alignment.TopStart).position({ x: 0, y: 0 }).width('100%').height('100%')
       }
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
