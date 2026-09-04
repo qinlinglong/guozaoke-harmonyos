@@ -37,6 +37,21 @@ export default class EntryAbility extends UIAbility {
     // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
+    // Draw the app behind the system bars so the home toolbar reaches the
+    // top edge instead of leaving the default black status-bar strip.
+    windowStage.getMainWindow().then((mainWindow: window.Window) => {
+      mainWindow.setWindowLayoutFullScreen(true);
+      mainWindow.setWindowSystemBarEnable(['status', 'navigation']);
+      mainWindow.setWindowSystemBarProperties({
+        statusBarColor: '#258DF5',
+        statusBarContentColor: '#FFFFFF',
+        navigationBarColor: '#000000',
+        navigationBarContentColor: '#FFFFFF'
+      });
+    }).catch((err: Error) => {
+      hilog.warn(DOMAIN, 'testTag', 'Failed to configure immersive bars: %{public}s', JSON.stringify(err));
+    });
+
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
