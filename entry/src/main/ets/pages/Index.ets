@@ -137,23 +137,32 @@ struct Index {
           // Full-screen scrim closes the drawer when tapping anywhere outside it.
           Row().width('100%').height('100%').backgroundColor('#00000055')
             .onClick(() => this.drawerOpen = false)
-          Column({ space: 14 }) {
-            Row() {
-              Text('×').fontSize(30).fontColor(Color.White)
-                .onClick(() => this.drawerOpen = false)
-              Blank()
-            }.width('100%').height(34)
-            Image($r('app.media.default_avatar')).width(64).height(64).borderRadius(32).margin({ top: 24 })
-            Text(GuozaokeService.isLoggedIn() ? '过早客用户' : '未登录').fontSize(16).fontColor(Color.White)
-            Text(GuozaokeService.isLoggedIn() ? '个人中心' : '登录').fontSize(17).fontColor(Color.White).padding(14).width('100%')
-              .onClick(() => router.pushUrl({ url: GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage' }))
-            Text('我的收藏').fontSize(17).fontColor(Color.White).padding(14).width('100%').onClick(() => router.pushUrl({ url: 'pages/TopicListPage', params: { kind: 'favorites' } }))
-            Text('节点').fontSize(17).fontColor(Color.White).padding(14).width('100%').onClick(() => router.pushUrl({ url: 'pages/NodesPage' }))
-            Text('设置').fontSize(17).fontColor(Color.White).padding(14).width('100%').onClick(() => router.pushUrl({ url: 'pages/SettingsPage' }))
+          Column() {
+            Column() {
+              Row() { Image($r('app.media.default_avatar')).width(64).height(64).borderRadius(32); Blank(); Text('×').fontSize(28).fontColor(Color.White).onClick(() => this.drawerOpen = false) }
+                .width('100%').padding({ top: 24, bottom: 14 })
+              Text(GuozaokeService.isLoggedIn() ? '过早客用户' : '未登录').fontSize(18).fontWeight(FontWeight.Medium).fontColor(Color.White).width('100%')
+              Text(GuozaokeService.isLoggedIn() ? '已登录 · guozaoke.com' : '登录后参与讨论').fontSize(12).fontColor('#D7E8FF').width('100%').margin({ top: 6, bottom: 20 })
+            }.width('100%').padding({ left: 20, right: 20 }).backgroundColor('#258DF5')
+            Column() {
+              this.drawerItem('ic_person', GuozaokeService.isLoggedIn() ? '个人中心' : '登录', () => router.pushUrl({ url: GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage' }))
+              this.drawerItem('ic_favorite', '我的收藏', () => router.pushUrl({ url: 'pages/TopicListPage', params: { kind: 'favorites' } }))
+              this.drawerItem('ic_nodes', '节点', () => router.pushUrl({ url: 'pages/NodesPage' }))
+              this.drawerItem('ic_settings_menu', '设置', () => router.pushUrl({ url: 'pages/SettingsPage' }))
+            }.width('100%').backgroundColor(Color.White)
             Blank()
-          }.width('70%').height('100%').padding({ left: 20, right: 20 }).backgroundColor('#258DF5').alignItems(HorizontalAlign.Start)
+          }.width('82%').height('100%').backgroundColor('#F5F6F8').shadow({ radius: 16, color: '#55000000', offsetX: 4 })
         }.alignContent(Alignment.TopStart).position({ x: 0, y: 0 }).width('100%').height('100%')
       }
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
+  }
+
+  @Builder
+  drawerItem(icon: string, label: string, action: () => void) {
+    Row() {
+      Image($r(`app.media.${icon}`)).width(22).height(22).margin({ right: 18 })
+      Text(label).fontSize(16).fontColor('#3C4043').layoutWeight(1)
+      Text('›').fontSize(24).fontColor('#A0A5AB')
+    }.width('100%').height(60).padding({ left: 22, right: 18 }).border({ width: { bottom: 1 }, color: '#ECEEF0' }).onClick(action)
   }
 }
