@@ -59,7 +59,8 @@ struct Index {
   build() {
     Column() {
       Row() {
-        Text('☰').width(44).height(56).textAlign(TextAlign.Center).fontSize(25).fontColor(Color.White).onClick(() => this.drawerOpen = true)
+        Text('☰').width(44).height(56).textAlign(TextAlign.Center).fontSize(25).fontColor(Color.White)
+          .onClick(() => setTimeout(() => this.drawerOpen = true, 80))
         Text('过早客').fontSize(20).fontWeight(FontWeight.Medium).fontColor(Color.White).margin({ left: 22 })
         Blank()
         Text('↻').width(44).height(56).textAlign(TextAlign.Center).fontSize(25).fontColor(Color.White).onClick(() => this.loadTopics())
