@@ -46,12 +46,13 @@ struct Index {
       });
       this.topics = await Promise.race([GuozaokeService.topics(this.tab), timeout]);
       if (this.topics.length === 0) {
-        this.message = '正在加载社区内容…';
-        this.webFallback = true;
+        this.message = GuozaokeService.isLoggedIn() ? '暂时没有可显示的主题，点击刷新重试' : '正在加载社区内容…';
+        this.webFallback = !GuozaokeService.isLoggedIn();
       }
     } catch (_) {
-      this.message = '原生接口暂时不可用，正在打开社区页面…';
-      this.webFallback = true;
+      const loggedIn = GuozaokeService.isLoggedIn();
+      this.message = loggedIn ? '原生列表加载失败，请点击刷新重试' : '原生接口暂时不可用，正在打开社区页面…';
+      this.webFallback = !loggedIn;
     }
     this.loading = false;
   }

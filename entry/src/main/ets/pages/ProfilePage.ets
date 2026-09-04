@@ -1,8 +1,15 @@
 import { router } from '@kit.ArkUI';
+import { GuozaokeService } from '../service/GuozaokeService';
 
 @Entry
 @Component
 struct ProfilePage {
+  @State avatar: string = '';
+
+  aboutToAppear(): void {
+    GuozaokeService.selfAvatar().then((value: string) => this.avatar = value);
+  }
+
   build() {
     Column() {
       Row() {
@@ -13,7 +20,7 @@ struct ProfilePage {
         Column() {
           Stack() {
             Image($r('app.media.background')).width('100%').height(160).objectFit(ImageFit.Cover)
-            Image($r('app.media.default_avatar')).width(72).height(72).borderRadius(36).position({ x: 16, y: 124 })
+            Image(this.avatar.length > 0 ? this.avatar : $r('app.media.default_avatar')).width(72).height(72).borderRadius(36).objectFit(ImageFit.Cover).position({ x: 16, y: 124 })
           }.width('100%').height(160)
           Column() {
             Text('过早客用户').fontSize(22).fontColor('#444444')

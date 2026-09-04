@@ -107,6 +107,17 @@ export class GuozaokeService {
     }
   }
 
+  static async selfAvatar(): Promise<string> {
+    try {
+      const profileUrl = await GuozaokeService.selfProfileUrl();
+      const path = profileUrl.replace(BASE_URL, '');
+      const html = await GuozaokeService.get(path);
+      const src = firstMatch(html, /<img[^>]*class="[^\"]*avatar[^\"]*"[^>]*src="([^\"]+)"/) ||
+        firstMatch(html, /<img[^>]*src="([^\"]+)"[^>]*class="[^\"]*avatar[^\"]*"/);
+      return normalizeImageUrl(src);
+    } catch (_) { return ''; }
+  }
+
   static async topicDetail(id: string): Promise<string> {
     const html: string = await GuozaokeService.get(`/t/${id}`);
     const content: string = firstMatch(html,
