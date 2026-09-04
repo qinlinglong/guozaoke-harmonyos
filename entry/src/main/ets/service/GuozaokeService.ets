@@ -1,6 +1,7 @@
 import { http } from '@kit.NetworkKit';
 import { webview } from '@kit.ArkWeb';
 import { Topic } from '../model/Topic';
+import { CommentItem } from '../model/CommentItem';
 
 export const BASE_URL: string = 'https://www.guozaoke.com';
 export const LOGIN_URL: string = `${BASE_URL}/login`;
@@ -125,15 +126,61 @@ export class GuozaokeService {
     return content.length > 0 ? content : '暂时无法解析主题内容';
   }
 
-  static async topicComments(id: string): Promise<Array<string>> {
-    const html: string = await GuozaokeService.get(`/t/${id}`);
-    const result: Array<string> = [];
-    const replies: Array<string> = html.match(/<span[^>]*class="[^\"]*content[^\"]*"[^>]*>[\s\S]*?<\/span>/g) ?? [];
-    replies.forEach((reply: string) => {
-      const value: string = decodeHtml(reply).replace(/\s+/g, ' ').trim();
-      if (value.length > 0 && value.length <= 2000) result.push(value);
+  static async topicComments(id: string): Promise<Array<CommentItem>> {
+    // The Android client requests the first paginated detail page for comments;
+    // the redesigned site omits the reply list from the bare /t/:id response.
+    const html: string = await GuozaokeService.get(`/t/${id}?p=1`);
+    const result: Array<CommentItem> = [];
+    const blocks: Array<string> = html.match(/<div[^>]*class="[^"]*reply-item[^"]*"[\s\S]*?(?=<div[^>]*class="[^"]*reply-item|<\/div>\s*<\/div>\s*<\/div>)/gi) ?? [];
+    blocks.forEach((block: string, index: number) => {
+      const item: CommentItem = new CommentItem();
+      item.id = firstMatch(block, /(?:id|data-id)="(?:reply|comment)?-?(\d+)"/i) || `${index + 1}`;
+      item.author = firstMatch(block, /class="[^"]*reply-username[^"]*"[\s\S]*?class="[^"]*username[^"]*"[^>]*>([\s\S]*?)<\/span>/i) || '用户';
+      item.time = firstMatch(block, /class="[^"]*time[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
+      item.floor = firstMatch(block, /class="[^"]*floor[^"]*"[^>]*>([\s\S]*?)<\/span>/i) || `#${index + 1}`;
+      const avatar = firstMatch(block, /<img[^>]*class="[^"]*avatar[^"]*"[^>]*src="([^"]+)"/i) || firstMatch(block, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/i);
+      item.avatar = normalizeImageUrl(avatar);
+      const vote = block.match(/<a[^>]*class="[^"]*J_replyVote[^"]*"[^>]*href="([^"]*)"[^>]*data-count="(\d+)"/i);
+      if (vote) { item.voteUrl = vote[1]; item.voteCount = Number(vote[2]); }
+      item.content = firstMatch(block, /<span[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/span>/i);
+      if (item.content.length > 0 && item.content.length <= 4000) result.push(item);
     });
+    if (result.length === 0) {
+      const replies: Array<string> = html.match(/<(?:span|div|p)[^>]*class="[^\"]*(?:content|comment-content|reply-content|comment-body)[^\"]*"[^>]*>[\s\S]*?<\/(?:span|div|p)>/gi) ?? [];
+      replies.forEach((reply: string, index: number) => {
+        const item: CommentItem = new CommentItem();
+        item.id = `${index + 1}`;
+        item.floor = `#${index + 1}`;
+        item.content = reply;
+        if (decodeHtml(reply).replace(/\s+/g, ' ').trim().length > 0) result.push(item);
+      });
+    }
     return result;
+  }
+
+  static async topicFavoriteState(id: string): Promise<boolean> {
+    try {
+      const html = await GuozaokeService.get(`/t/${id}`);
+      const element = html.match(/class="[^"]*J_topicFavorite[^"]*"[^>]*data-type="([^"]+)"/i);
+      return !!element && element[1] !== 'favorite';
+    } catch (_) { return false; }
+  }
+
+  static async favorite(id: string): Promise<boolean> {
+    try { return (await GuozaokeService.get(`/favorite?topic_id=${encodeURIComponent(id)}`)).length > 0; }
+    catch (_) { return false; }
+  }
+
+  static async unfavorite(id: string): Promise<boolean> {
+    try { return (await GuozaokeService.get(`/unfavorite?topic_id=${encodeURIComponent(id)}`)).length > 0; }
+    catch (_) { return false; }
+  }
+
+  static async vote(url: string): Promise<boolean> {
+    try {
+      const path = url.startsWith(BASE_URL) ? url.substring(BASE_URL.length) : url;
+      return (await GuozaokeService.get(path)).length > 0;
+    } catch (_) { return false; }
   }
 
   static async comment(id: string, content: string): Promise<boolean> {

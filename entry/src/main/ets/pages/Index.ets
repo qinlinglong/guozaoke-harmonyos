@@ -13,6 +13,7 @@ struct Index {
   @State webFallback: boolean = false;
   @State challengeReady: boolean = false;
   @State drawerOpen: boolean = false;
+  @State selfAvatar: string = '';
   controller: webview.WebviewController = new webview.WebviewController();
 
   aboutToAppear(): void {
@@ -21,6 +22,9 @@ struct Index {
       const params = router.getParams() as Record<string, string>;
       this.tab = params && params.tab ? params.tab : '';
     } catch (_) { this.tab = ''; }
+    if (GuozaokeService.isLoggedIn()) {
+      GuozaokeService.selfAvatar().then((value: string) => this.selfAvatar = value);
+    }
     this.loadTopics();
     // Do not leave the native page blocked if the anti-bot bootstrap is slow
     // or unavailable; continue with the normal native request after a bound.
@@ -140,7 +144,7 @@ struct Index {
             .onClick(() => this.drawerOpen = false)
           Column() {
             Column() {
-              Row() { Image($r('app.media.default_avatar')).width(64).height(64).borderRadius(32); Blank(); Text('×').fontSize(28).fontColor(Color.White).onClick(() => this.drawerOpen = false) }
+              Row() { Image(this.selfAvatar.length > 0 ? this.selfAvatar : $r('app.media.default_avatar')).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover); Blank(); Text('×').fontSize(28).fontColor(Color.White).onClick(() => this.drawerOpen = false) }
                 .width('100%').padding({ top: 24, bottom: 14 })
               Text(GuozaokeService.isLoggedIn() ? '过早客用户' : '未登录').fontSize(18).fontWeight(FontWeight.Medium).fontColor(Color.White).width('100%')
               Text(GuozaokeService.isLoggedIn() ? '已登录 · guozaoke.com' : '登录后参与讨论').fontSize(12).fontColor('#D7E8FF').width('100%').margin({ top: 6, bottom: 20 })

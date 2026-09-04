@@ -1,5 +1,6 @@
 import { router } from '@kit.ArkUI';
 import { GuozaokeService } from '../service/GuozaokeService';
+import { CommentItem } from '../model/CommentItem';
 
 function htmlText(value: string): string {
   return value.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -18,9 +19,11 @@ struct TopicPage {
   @State topicId: string = '';
   @State body: string = '加载中…';
   @State comment: string = '';
-  @State comments: Array<string> = [];
+  @State comments: Array<CommentItem> = [];
   @State shared: boolean = false;
   @State status: string = '';
+  @State replyTarget: string = '';
+  @State favorite: boolean = false;
 
   aboutToAppear(): void {
     try {
@@ -36,10 +39,12 @@ struct TopicPage {
     try {
       const detail = await Promise.all([
         GuozaokeService.topicDetail(this.topicId),
-        GuozaokeService.topicComments(this.topicId)
+        GuozaokeService.topicComments(this.topicId),
+        GuozaokeService.topicFavoriteState(this.topicId)
       ]);
       this.body = htmlText(detail[0]);
       this.comments = detail[1];
+      this.favorite = detail[2];
     }
     catch (_) { this.body = '加载失败，请稍后重试'; }
   }
@@ -56,7 +61,17 @@ struct TopicPage {
         Column() {
           Column() {
             Text(this.title).fontSize(18).fontWeight(FontWeight.Bold).fontColor('#202124').lineHeight(26).width('100%')
-            Text('过早客 · 主题').fontSize(13).fontColor('#8A9199').margin({ top: 8, bottom: 16 }).width('100%')
+            Row() {
+              Text('过早客 · 主题').fontSize(13).fontColor('#8A9199').layoutWeight(1)
+              Text(this.favorite ? '已收藏' : '收藏').fontSize(13).fontColor(this.favorite ? '#F59E0B' : '#258DF5')
+                .padding({ left: 12, right: 12, top: 6, bottom: 6 }).backgroundColor(this.favorite ? '#FFF7E6' : '#EEF6FF')
+                .borderRadius(14).onClick(async () => {
+                  this.status = '处理中…';
+                  const ok = this.favorite ? await GuozaokeService.unfavorite(this.topicId) : await GuozaokeService.favorite(this.topicId);
+                  if (ok) { this.favorite = !this.favorite; this.status = this.favorite ? '已加入收藏' : '已取消收藏'; }
+                  else this.status = '操作失败，请先登录';
+                })
+            }.width('100%').margin({ top: 8, bottom: 16 })
             Text(this.body).fontSize(14).fontColor('#3C4043').lineHeight(22).width('100%')
           }.width('100%').padding(18).backgroundColor(Color.White).borderRadius(10)
           Row() {
@@ -64,23 +79,50 @@ struct TopicPage {
             Blank()
             Text('按时间排序').fontSize(12).fontColor('#9AA0A6')
           }.width('100%').padding({ top: 20, bottom: 10, left: 4, right: 4 })
-          ForEach(this.comments, (item: string, index: number) => {
+          ForEach(this.comments, (item: CommentItem, index: number) => {
             Row() {
-              Image($r('app.media.default_avatar')).width(32).height(32).borderRadius(16).objectFit(ImageFit.Cover)
+              Image(item.avatar.length > 0 ? item.avatar : $r('app.media.default_avatar')).width(34).height(34).borderRadius(17).objectFit(ImageFit.Cover)
               Column() {
-                Row() { Text(`用户 ${index + 1}`).fontSize(13).fontColor('#5F6368'); Blank(); Text(`#${index + 1}`).fontSize(12).fontColor('#A0A5AB'); }.width('100%')
-                Text(item).fontSize(14).fontColor('#3C4043').lineHeight(21).width('100%').margin({ top: 6 })
+                Row() {
+                  Text(item.author.length > 0 ? item.author : `用户 ${index + 1}`).fontSize(13).fontColor('#3B82F6').fontWeight(FontWeight.Medium)
+                  Text(item.time).fontSize(11).fontColor('#A0A5AB').margin({ left: 8 })
+                  Blank()
+                  Text(item.floor.startsWith('#') ? item.floor : `#${item.floor}`).fontSize(12).fontColor('#A0A5AB')
+                }.width('100%')
+                Text(htmlText(item.content)).fontSize(14).fontColor('#3C4043').lineHeight(21).width('100%').margin({ top: 6 })
+                Row() {
+                  Blank()
+                  Text('回复').fontSize(12).fontColor('#258DF5').padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                    .onClick(() => {
+                      this.replyTarget = item.author.length > 0 ? item.author : `用户 ${index + 1}`;
+                      this.comment = `@${this.replyTarget} `;
+                    })
+                  Text(item.voted ? '已赞' : '赞').fontSize(12).fontColor(item.voted ? '#F59E0B' : '#7B8794')
+                    .padding({ left: 10, right: 6, top: 4, bottom: 4 }).onClick(async () => {
+                      if (item.voted || item.voteUrl.length === 0) return;
+                      const voted = await GuozaokeService.vote(item.voteUrl);
+                      if (voted) { item.voted = true; item.voteCount += 1; this.comments = this.comments.slice(); }
+                      this.status = voted ? '点赞成功' : '点赞失败';
+                    })
+                  Text(`${item.voteCount}`).fontSize(11).fontColor('#A0A5AB').margin({ right: 2 })
+                }.width('100%').margin({ top: 4 })
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
             }.width('100%').padding(14).backgroundColor(Color.White).borderRadius(8).margin({ bottom: 8 })
-          }, (_: string, index: number) => `${index}`)
+          }, (item: CommentItem, index: number) => `${item.id}-${index}`)
         }.width('100%').alignItems(HorizontalAlign.Start).padding({ left: 12, right: 12, top: 12, bottom: 16 })
       }.layoutWeight(1).width('100%')
       Row() {
-        TextInput({ placeholder: '参与讨论…', text: this.comment }).onChange((v: string) => this.comment = v).layoutWeight(1).height(44)
+        TextInput({ placeholder: this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '参与讨论…', text: this.comment }).onChange((v: string) => this.comment = v).layoutWeight(1).height(44)
         Button('发送').height(40).margin({ left: 8 }).backgroundColor('#258DF5').onClick(async () => {
           const value = this.comment.trim(); if (value.length === 0 || this.topicId.length === 0) return;
           this.status = '发送中…';
-          try { if (await GuozaokeService.comment(this.topicId, value)) { this.comments.push(value); this.comment = ''; this.status = '评论成功'; } else this.status = '评论失败'; }
+          const content = this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
+          try {
+            if (await GuozaokeService.comment(this.topicId, content)) {
+              const mine: CommentItem = new CommentItem(); mine.author = '我'; mine.floor = '#新'; mine.content = content;
+              this.comments = this.comments.concat([mine]); this.comment = ''; this.replyTarget = ''; this.status = '评论成功';
+            } else this.status = '评论失败';
+          }
           catch (_) { this.status = '评论失败'; }
         })
       }.width('100%').padding({ left: 12, right: 12, top: 8, bottom: 8 }).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
