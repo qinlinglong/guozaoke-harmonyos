@@ -12,7 +12,7 @@ struct SettingsPage {
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
       await context.startAbility({
         action: 'ohos.want.action.viewData',
-        uri: 'https://mazhuang.org/guanggoo-android/image-bed-help'
+        uri: 'https://github.com/qinlinglong/guozaoke-harmonyos#image-hosting'
       });
     } catch (_) {}
   }

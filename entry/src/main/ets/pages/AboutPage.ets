@@ -46,7 +46,7 @@ struct AboutPage {
           this.actionRow('检查新版本', '前往 GitHub Releases', () => this.openExternal(`${PROJECT_URL}/releases`))
           this.actionRow('建议与反馈', '提交 Issue', () => this.openExternal(`${PROJECT_URL}/issues`))
           this.actionRow('分享给好友', '复制项目地址', () => this.copyProjectLink())
-          this.actionRow('隐私与政策', '查看隐私说明', () => this.openExternal('https://mazhuang.org/guanggoo-android/policy'))
+          this.actionRow('隐私与政策', '查看隐私说明', () => this.openExternal(`${PROJECT_URL}#privacy`))
           this.actionRow('获取源代码', 'qinlinglong/guozaoke-harmonyos', () => this.openExternal(PROJECT_URL))
           if (this.status.length > 0) {
             Text(this.status).fontSize(13).fontColor('#258DF5').margin({ top: 18 })

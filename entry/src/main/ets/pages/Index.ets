@@ -21,6 +21,8 @@ struct Index {
   @State drawerOpen: boolean = false;
   @State selfAvatar: string = '';
   @State selfName: string = '';
+  private topicCache: Map<string, Array<Topic>> = new Map();
+  private requestSerial: number = 0;
   controller: webview.WebviewController = new webview.WebviewController();
 
   private closeDrawer(): void {
@@ -68,6 +70,8 @@ struct Index {
       this.loading = true;
       return;
     }
+    const requestedTab = this.tab;
+    const serial = ++this.requestSerial;
     this.loading = true;
     this.message = '';
     this.webFallback = false;
@@ -75,17 +79,35 @@ struct Index {
       const timeout = new Promise<Array<Topic>>((_, reject) => {
         setTimeout(() => reject(new Error('native request timeout')), 12000);
       });
-      this.topics = await Promise.race([GuozaokeService.topics(this.tab), timeout]);
-      if (this.topics.length === 0) {
+      const nextTopics = await Promise.race([GuozaokeService.topics(requestedTab), timeout]);
+      if (serial !== this.requestSerial) return;
+      this.topicCache.set(requestedTab, nextTopics);
+      this.topics = nextTopics;
+      if (nextTopics.length === 0) {
         this.message = GuozaokeService.isLoggedIn() ? '暂时没有可显示的主题，点击刷新重试' : '正在加载社区内容…';
         this.webFallback = !GuozaokeService.isLoggedIn();
       }
     } catch (_) {
+      if (serial !== this.requestSerial) return;
       const loggedIn = GuozaokeService.isLoggedIn();
       this.message = loggedIn ? '原生列表加载失败，请点击刷新重试' : '原生接口暂时不可用，正在打开社区页面…';
-      this.webFallback = !loggedIn;
+      this.webFallback = !loggedIn && this.topics.length === 0;
+      if (this.topics.length > 0) {
+        const currentMessage = this.message;
+        setTimeout(() => { if (this.message === currentMessage) this.message = ''; }, 2200);
+      }
     }
-    this.loading = false;
+    if (serial === this.requestSerial) this.loading = false;
+  }
+
+  private switchTab(nextTab: string): void {
+    if (this.tab === nextTab) return;
+    this.tab = nextTab;
+    const cached = this.topicCache.get(nextTab);
+    if (cached !== undefined) this.topics = cached;
+    this.message = '';
+    this.webFallback = false;
+    this.loadTopics();
   }
 
   build() {
@@ -107,7 +129,7 @@ struct Index {
       }
       .width('100%').height(56).flexShrink(0).padding({ left: 18, right: 18 }).backgroundColor('#258DF5')
 
-      if (this.loading) {
+      if (this.loading && this.topics.length === 0) {
         LoadingProgress().margin({ top: 80 })
         // The site currently serves an anti-bot bootstrap page to raw HTTP
         // clients. Let WebView establish its cookie, then retry native parsing.
@@ -124,47 +146,62 @@ struct Index {
           .javaScriptAccess(true).domStorageAccess(true)
           .runJavaScriptOnDocumentEnd([{ script: `document.querySelector('meta[name=viewport]')||document.head.insertAdjacentHTML('beforeend','<meta name=viewport content="width=device-width,initial-scale=1">');var s=document.createElement('style');s.textContent='[id*=ad],[class*=ad],[class*=advert],iframe[src*=ad]{display:none!important}';document.head.appendChild(s);`, scriptRules: ['*'] }])
           .layoutWeight(1).width('100%')
-      } else if (this.message.length > 0) {
-        Text(this.message).fontColor('#777777').margin({ top: 80 })
       } else {
         Row() {
-          Text('首页').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === '' ? Color.White : '#B3FFFFFF').onClick(() => { this.tab = ''; this.loadTopics(); })
-          Text('最新').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'latest' ? Color.White : '#B3FFFFFF').onClick(() => { this.tab = 'latest'; this.loadTopics(); })
-          Text('精华').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'elite' ? Color.White : '#B3FFFFFF').onClick(() => { this.tab = 'elite'; this.loadTopics(); })
-          Text('关注').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'follows' ? Color.White : '#B3FFFFFF').onClick(() => { this.tab = 'follows'; this.loadTopics(); })
+          Text('首页').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === '' ? Color.White : '#B3FFFFFF').onClick(() => this.switchTab(''))
+          Text('最新').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'latest' ? Color.White : '#B3FFFFFF').onClick(() => this.switchTab('latest'))
+          Text('精华').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'elite' ? Color.White : '#B3FFFFFF').onClick(() => this.switchTab('elite'))
+          Text('关注').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'follows' ? Color.White : '#B3FFFFFF').onClick(() => this.switchTab('follows'))
         }.width('100%').height(40).padding({ left: 10, right: 10, bottom: 4 }).backgroundColor('#258DF5')
-        List({ space: 1 }) {
-          ForEach(this.topics, (topic: Topic) => {
-            ListItem() {
-              Column() {
-                Row() {
-                  Stack() {
-                    // Keep the local avatar visible if the CDN image is slow,
-                    // blocked, or returns an unsupported animated format.
-                    Image($r('app.media.avatar_placeholder'))
-                      .width(20).height(20).borderRadius(10).objectFit(ImageFit.Cover)
-                    if (topic.avatar.length > 0) {
-                      Image(topic.avatar).width(20).height(20).borderRadius(10).objectFit(ImageFit.Cover)
-                    }
+        Stack({ alignContent: Alignment.TopEnd }) {
+          if (this.message.length > 0 && this.topics.length === 0) {
+            Text(this.message).fontColor('#777777').width('100%').textAlign(TextAlign.Center).margin({ top: 80 })
+          } else {
+            List({ space: 1 }) {
+              ForEach(this.topics, (topic: Topic) => {
+                ListItem() {
+                  Column() {
+                    Row() {
+                      Stack() {
+                        // Keep the local avatar visible if the CDN image is slow,
+                        // blocked, or returns an unsupported animated format.
+                        Image($r('app.media.avatar_placeholder'))
+                          .width(20).height(20).borderRadius(10).objectFit(ImageFit.Cover)
+                        if (topic.avatar.length > 0) {
+                          Image(topic.avatar).width(20).height(20).borderRadius(10).objectFit(ImageFit.Cover)
+                        }
+                      }
+                      Text(topic.author).fontSize(14).fontColor('#444444').margin({ left: 8 })
+                      Blank()
+                      Text(topic.node).fontSize(12).fontColor('#BBBBBB').maxLines(1)
+                    }.width('100%').height(20)
+                    Text(topic.title).fontSize(16).fontColor('#444444').lineHeight(20).maxLines(2)
+                      .margin({ top: 12, bottom: 12 }).width('100%')
+                    Row() {
+                      Blank()
+                      Text(`${topic.replies} 回复`).fontSize(12).fontColor('#BBBBBB')
+                    }.width('100%')
                   }
-                  Text(topic.author).fontSize(14).fontColor('#444444').margin({ left: 8 })
-                  Blank()
-                  Text(topic.node).fontSize(12).fontColor('#BBBBBB').maxLines(1)
-                }.width('100%').height(20)
-                Text(topic.title).fontSize(16).fontColor('#444444').lineHeight(20).maxLines(2)
-                  .margin({ top: 12, bottom: 12 }).width('100%')
-                Row() {
-                  Blank()
-                  Text(`${topic.replies} 回复`).fontSize(12).fontColor('#BBBBBB')
-                }.width('100%')
-              }
-              .padding({ left: 16, right: 16, top: 12, bottom: 16 })
-              .backgroundColor(Color.White)
-              .onClick(() => router.pushUrl({
-                url: 'pages/TopicPage', params: { id: topic.id, title: topic.title }
-              }))
-            }
-          }, (topic: Topic) => topic.id)
+                  .padding({ left: 16, right: 16, top: 12, bottom: 16 })
+                  .backgroundColor(Color.White)
+                  .onClick(() => router.pushUrl({
+                    url: 'pages/TopicPage', params: { id: topic.id, title: topic.title }
+                  }))
+                }
+              }, (topic: Topic) => topic.id)
+            }.width('100%').height('100%')
+          }
+          if (this.loading && this.topics.length > 0) {
+            Row() {
+              LoadingProgress().width(16).height(16).color('#258DF5')
+              Text('更新中').fontSize(11).fontColor('#5F6B76').margin({ left: 5 })
+            }.height(30).padding({ left: 10, right: 10 }).margin({ top: 8, right: 12 })
+              .backgroundColor('#F2FFFFFF').borderRadius(15).shadow({ radius: 4, color: '#22000000', offsetY: 1 })
+          } else if (this.message.length > 0 && this.topics.length > 0) {
+            Text(this.message).fontSize(11).fontColor('#5F6B76').height(30).padding({ left: 10, right: 10 })
+              .margin({ top: 8, right: 12 }).backgroundColor('#F2FFFFFF').borderRadius(15)
+              .shadow({ radius: 4, color: '#22000000', offsetY: 1 })
+          }
         }.layoutWeight(1).width('100%')
       }
 
