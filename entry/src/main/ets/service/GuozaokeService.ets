@@ -129,7 +129,12 @@ export class GuozaokeService {
   static async topicComments(id: string): Promise<Array<CommentItem>> {
     // The Android client requests the first paginated detail page for comments;
     // the redesigned site omits the reply list from the bare /t/:id response.
-    const html: string = await GuozaokeService.get(`/t/${id}?p=1`);
+    let html: string = await GuozaokeService.get(`/t/${id}?p=1`);
+    // Some CDN edges serve the anti-bot shell for the paginated URL only.
+    // Retry the canonical detail response before presenting a false empty list.
+    if (!/(reply-item|topic-reply|J_replyVote|comment-content|reply-content)/i.test(html)) {
+      html = await GuozaokeService.get(`/t/${id}`);
+    }
     const result: Array<CommentItem> = [];
     const blocks: Array<string> = html.match(/<div[^>]*class="[^"]*reply-item[^"]*"[\s\S]*?(?=<div[^>]*class="[^"]*reply-item|<\/div>\s*<\/div>\s*<\/div>)/gi) ?? [];
     blocks.forEach((block: string, index: number) => {
