@@ -127,7 +127,13 @@ export class GuozaokeService {
     const html: string = await GuozaokeService.get('/notifications');
     const result: Array<string> = [];
     const items: Array<string> = html.match(/<li[^>]*>[\s\S]*?<\/li>/g) ?? [];
-    items.forEach((item: string) => { const value: string = decodeHtml(item.replace(/<[^>]+>/g, '').trim()); if (value.length > 0) result.push(value); });
+    items.forEach((item: string) => {
+      // The redesigned site may return login/bootstrap scripts inside list markup.
+      // Remove non-content blocks before extracting text so tokens are never shown.
+      const content: string = item.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '');
+      const value: string = decodeHtml(content.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+      if (value.length > 0 && value.length <= 300 && !/[A-Za-z0-9+/]{80,}/.test(value)) result.push(value);
+    });
     return result;
   }
 }

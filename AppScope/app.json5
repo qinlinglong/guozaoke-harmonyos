@@ -1,6 +1,6 @@
 {
   "app": {
-    "bundleName": "org.mazhuang.guanggoo.harmony",
+    "bundleName": "io.github.qinlinglong.guozaoke",
     "vendor": "example",
   "versionCode": 1000000,
   "versionName": "1.0.0",

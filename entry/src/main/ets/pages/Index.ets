@@ -45,13 +45,13 @@ struct Index {
   build() {
     Column() {
       Row() {
-        Text('☰').fontSize(25).fontColor(Color.White).onClick(() => this.drawerOpen = true)
+        Text('☰').width(44).height(56).textAlign(TextAlign.Center).fontSize(25).fontColor(Color.White).onClick(() => this.drawerOpen = true)
         Text('过早客').fontSize(20).fontWeight(FontWeight.Medium).fontColor(Color.White).margin({ left: 22 })
         Blank()
-        Text('↻').fontSize(26).fontColor(Color.White).onClick(() => this.loadTopics())
-        Text('⌕').fontSize(28).fontColor(Color.White).margin({ left: 18 })
+        Text('↻').width(44).height(56).textAlign(TextAlign.Center).fontSize(25).fontColor(Color.White).onClick(() => this.loadTopics())
+        Text('⌕').width(44).height(56).textAlign(TextAlign.Center).fontSize(27).fontColor(Color.White)
           .onClick(() => router.pushUrl({ url: 'pages/SearchPage' }))
-        Text('♢').fontSize(24).fontColor(Color.White).margin({ left: 18 })
+        Text('♢').width(44).height(56).textAlign(TextAlign.Center).fontSize(24).fontColor(Color.White)
           .onClick(() => router.pushUrl({ url: 'pages/NotificationsPage' }))
       }
       .width('100%').height(56).padding({ left: 18, right: 18 }).backgroundColor('#258DF5')
