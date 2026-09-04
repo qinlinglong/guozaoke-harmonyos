@@ -287,12 +287,36 @@ struct TopicPage {
         }.width('100%').height(56).flexShrink(0).padding({ left: 8 }).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
       } else {
         Row() {
-          Text('×').fontSize(24).fontColor('#9AA0A6').width(30).textAlign(TextAlign.Center).onClick(() => this.dismissComposer(true))
-          TextInput({ placeholder: this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '参与讨论…', text: this.comment })
-            .id('commentInput').focusOnTouch(true).onChange((v: string) => this.comment = v).layoutWeight(1).height(44)
-          Button(this.sending ? '发送中…' : '发送').height(40).margin({ left: 8, right: 8 }).backgroundColor('#258DF5')
+          Text('×').fontSize(23).fontColor('#7B8794').width(40).height(48).textAlign(TextAlign.Center)
+            .onClick(() => this.dismissComposer(true))
+          TextArea({ placeholder: this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容', text: this.comment })
+            .id('commentInput')
+            .focusOnTouch(true)
+            .fontSize(15)
+            .fontColor('#30343B')
+            .placeholderColor('#9AA0A6')
+            .caretColor('#258DF5')
+            .textAlign(TextAlign.Start)
+            .lineHeight(21)
+            .maxLines(3)
+            .layoutWeight(1)
+            .height(56)
+            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+            .backgroundColor('#F5F6F8')
+            .borderRadius(8)
+            .onChange((v: string) => this.comment = v)
+            .onKeyPreIme((event: KeyEvent) => {
+              if (event.keyCode !== 2) return false;
+              // Consume both phases. Removing the editor on key-down would let
+              // the matching key-up reach the page and navigate away.
+              if (event.type === KeyType.Up) this.dismissComposer();
+              return true;
+            })
+          Button(this.sending ? '发送中…' : '评论').fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
+            .padding(0).borderRadius(20).backgroundColor('#258DF5')
             .enabled(!this.sending && this.comment.trim().length > 0).onClick(() => this.sendComment())
-        }.width('100%').height(56).flexShrink(0).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
+        }.width('100%').height(72).flexShrink(0).alignItems(VerticalAlign.Center).backgroundColor(Color.White)
+          .border({ width: { top: 1 }, color: '#E6E8EB' })
       }
       if (this.status.length > 0) { Text(this.status).fontSize(13).fontColor('#258DF5').margin({ bottom: 6 }); }
       if (this.shared) { Text('分享链接已复制').fontSize(13).fontColor('#258DF5').position({ x: 16, y: '80%' }); }
