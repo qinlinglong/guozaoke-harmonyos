@@ -11,6 +11,7 @@ struct Index {
   @State message: string = '';
   @State tab: string = '';
   @State webFallback: boolean = false;
+  @State challengeReady: boolean = false;
   @State drawerOpen: boolean = false;
   controller: webview.WebviewController = new webview.WebviewController();
 
@@ -24,6 +25,10 @@ struct Index {
   }
 
   async loadTopics(): Promise<void> {
+    if (!this.challengeReady) {
+      this.loading = true;
+      return;
+    }
     this.loading = true;
     this.message = '';
     this.webFallback = false;
@@ -59,6 +64,16 @@ struct Index {
 
       if (this.loading) {
         LoadingProgress().margin({ top: 80 })
+        // The site currently serves an anti-bot bootstrap page to raw HTTP
+        // clients. Let WebView establish its cookie, then retry native parsing.
+        Web({ src: 'https://www.guozaoke.com/', controller: this.controller })
+          .javaScriptAccess(true).domStorageAccess(true).height(1).width(1).opacity(0.01)
+          .onPageEnd(() => {
+            if (!this.challengeReady) {
+              this.challengeReady = true;
+              setTimeout(() => this.loadTopics(), 1200);
+            }
+          })
       } else if (this.webFallback) {
         Web({ src: this.tab.length > 0 ? `https://www.guozaoke.com/?tab=${this.tab}` : 'https://www.guozaoke.com/', controller: this.controller })
           .javaScriptAccess(true).domStorageAccess(true)
