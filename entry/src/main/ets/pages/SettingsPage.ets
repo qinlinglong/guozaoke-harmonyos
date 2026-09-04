@@ -6,7 +6,7 @@ struct SettingsPage {
   @State desc: boolean = false;
   build() {
     Column() {
-      Row() { Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back()); Text('设置').fontSize(20).fontWeight(FontWeight.Bold).margin({ left: 18 }); }
+      Row() { Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back()); Text('设置').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 }); }
         .width('100%').height(60).padding({ left: 16 }).backgroundColor(Color.White)
       Row() { Text('评论按时间倒序').fontSize(16).fontColor('#444444'); Blank(); Toggle({ type: ToggleType.Switch, isOn: this.desc }).onChange((v: boolean) => this.desc = v); }
         .width('100%').height(60).padding({ left: 16, right: 16 }).margin({ top: 10 }).backgroundColor(Color.White)

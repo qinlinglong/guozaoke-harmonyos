@@ -18,7 +18,7 @@ struct SearchPage {
     Column() {
       Row() { Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back()); Text('搜索').fontSize(20).fontWeight(FontWeight.Bold).margin({ left: 18 }); }
         .width('100%').height(60).padding({ left: 16 }).backgroundColor(Color.White)
-      TextInput({ placeholder: '请输入关键词', text: this.query }).onChange((v: string) => this.query = v)
+      TextInput({ placeholder: '请输入关键词', text: this.query }).fontColor('#444444').placeholderColor('#999999').onChange((v: string) => this.query = v)
         .width('92%').height(48).margin({ top: 16 })
       Button('搜索').width('92%').height(44).margin({ top: 12 }).backgroundColor('#258DF5').onClick(() => this.search())
       if (this.loading) { LoadingProgress().margin({ top: 40 }); }

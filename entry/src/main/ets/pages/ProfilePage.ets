@@ -7,7 +7,7 @@ struct ProfilePage {
     Column() {
       Row() {
         Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back())
-        Text('个人中心').fontSize(20).fontWeight(FontWeight.Bold).margin({ left: 18 })
+        Text('个人中心').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 })
       }.width('100%').height(60).padding({ left: 16 }).backgroundColor(Color.White)
       Scroll() {
         Column() {
