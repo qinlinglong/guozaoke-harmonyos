@@ -59,14 +59,18 @@ struct Index {
   build() {
     Column() {
       Row() {
-        Text('☰').width(44).height(56).textAlign(TextAlign.Center).fontSize(25).fontColor(Color.White)
+        Image($r('app.media.ic_menu')).width(24).height(24).objectFit(ImageFit.Contain)
+          .width(44).height(56)
           .onClick(() => setTimeout(() => this.drawerOpen = true, 80))
         Text('过早客').fontSize(20).fontWeight(FontWeight.Medium).fontColor(Color.White).margin({ left: 22 })
         Blank()
-        Text('↻').width(44).height(56).textAlign(TextAlign.Center).fontSize(25).fontColor(Color.White).onClick(() => this.loadTopics())
-        Text('⌕').width(44).height(56).textAlign(TextAlign.Center).fontSize(27).fontColor(Color.White)
+        Image($r('app.media.ic_refresh')).width(24).height(24).objectFit(ImageFit.Contain)
+          .width(44).height(56).onClick(() => this.loadTopics())
+        Image($r('app.media.ic_search')).width(24).height(24).objectFit(ImageFit.Contain)
+          .width(44).height(56)
           .onClick(() => router.pushUrl({ url: 'pages/SearchPage' }))
-        Text('♢').width(44).height(56).textAlign(TextAlign.Center).fontSize(24).fontColor(Color.White)
+        Image($r('app.media.ic_notifications')).width(24).height(24).objectFit(ImageFit.Contain)
+          .width(44).height(56)
           .onClick(() => router.pushUrl({ url: 'pages/NotificationsPage' }))
       }
       .width('100%').height(56).padding({ left: 18, right: 18 }).backgroundColor('#258DF5')
