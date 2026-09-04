@@ -22,6 +22,14 @@ struct Index {
       this.tab = params && params.tab ? params.tab : '';
     } catch (_) { this.tab = ''; }
     this.loadTopics();
+    // Do not leave the native page blocked if the anti-bot bootstrap is slow
+    // or unavailable; continue with the normal native request after a bound.
+    setTimeout(() => {
+      if (!this.challengeReady) {
+        this.challengeReady = true;
+        this.loadTopics();
+      }
+    }, 5000);
   }
 
   async loadTopics(): Promise<void> {
