@@ -122,6 +122,31 @@ export class GuozaokeService {
     return result;
   }
 
+  static async comment(id: string, content: string): Promise<boolean> {
+    const response = await GuozaokeService.post(`/t/${id}`, `tid=${encodeURIComponent(id)}&content=${encodeURIComponent(content)}`);
+    return response.length > 0;
+  }
+
+  static async newTopic(title: string, content: string): Promise<boolean> {
+    const response = await GuozaokeService.post('/new', `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`);
+    return response.length > 0;
+  }
+
+  static async post(path: string, form: string): Promise<string> {
+    const request: http.HttpRequest = http.createHttp();
+    try {
+      const response: http.HttpResponse = await request.request(`${BASE_URL}${path}`, {
+        method: http.RequestMethod.POST,
+        header: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cookie': GuozaokeService.cookie(), 'Referer': BASE_URL + '/' },
+        extraData: form,
+        connectTimeout: 8000,
+        readTimeout: 10000,
+        expectDataType: http.HttpDataType.STRING
+      });
+      return response.result as string;
+    } finally { request.destroy(); }
+  }
+
   static async nodes(): Promise<Array<string>> {
     const html: string = await GuozaokeService.get('/nodes');
     const result: Array<string> = [];

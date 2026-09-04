@@ -17,6 +17,7 @@ struct TopicPage {
   @State comment: string = '';
   @State comments: Array<string> = [];
   @State shared: boolean = false;
+  @State status: string = '';
 
   aboutToAppear(): void {
     try {
@@ -60,8 +61,14 @@ struct TopicPage {
       }.layoutWeight(1).width('100%')
       Row() {
         TextInput({ placeholder: '参与讨论…', text: this.comment }).onChange((v: string) => this.comment = v).layoutWeight(1).height(44)
-        Button('发送').height(40).margin({ left: 8 }).backgroundColor('#258DF5').onClick(() => { if (this.comment.trim().length > 0) { this.comments.push(this.comment.trim()); this.comment = ''; } })
+        Button('发送').height(40).margin({ left: 8 }).backgroundColor('#258DF5').onClick(async () => {
+          const value = this.comment.trim(); if (value.length === 0 || this.topicId.length === 0) return;
+          this.status = '发送中…';
+          try { if (await GuozaokeService.comment(this.topicId, value)) { this.comments.push(value); this.comment = ''; this.status = '评论成功'; } else this.status = '评论失败'; }
+          catch (_) { this.status = '评论失败'; }
+        })
       }.width('100%').padding({ left: 12, right: 12, top: 8, bottom: 8 }).backgroundColor(Color.White)
+      if (this.status.length > 0) { Text(this.status).fontSize(13).fontColor('#258DF5').margin({ bottom: 6 }); }
       if (this.shared) { Text('分享链接已复制').fontSize(13).fontColor('#258DF5').position({ x: 16, y: '80%' }); }
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
   }
