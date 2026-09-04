@@ -15,6 +15,7 @@ struct Index {
   controller: webview.WebviewController = new webview.WebviewController();
 
   aboutToAppear(): void {
+    this.drawerOpen = false;
     try {
       const params = router.getParams() as Record<string, string>;
       this.tab = params && params.tab ? params.tab : '';

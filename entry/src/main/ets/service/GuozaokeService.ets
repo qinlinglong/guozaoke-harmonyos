@@ -33,7 +33,9 @@ export class GuozaokeService {
       topic.title = firstMatch(card, /<h3[^>]*class="[^"]*title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
       topic.author = firstMatch(card, /class="[^"]*username[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
       topic.node = firstMatch(card, /class="[^"]*node[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      topic.avatar = normalizeImageUrl(firstMatch(card, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/));
+      const avatarSrc = firstMatch(card, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/) ||
+        firstMatch(card, /<img[^>]*class="[^"]*avatar[^"]*"[^>]*src="([^"]+)"/);
+      topic.avatar = normalizeImageUrl(avatarSrc);
       topic.replies = firstMatch(card, /class="[^"]*count[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/) || '0';
       if (topic.id.length > 0 && topic.title.length > 0) result.push(topic);
     });
