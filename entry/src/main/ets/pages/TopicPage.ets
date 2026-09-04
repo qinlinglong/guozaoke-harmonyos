@@ -48,7 +48,7 @@ struct TopicPage {
           Text(this.body).fontSize(16).fontColor('#444444').lineHeight(25).width('100%')
           Divider().margin({ top: 24, bottom: 16 })
           Text('评论').fontSize(18).fontWeight(FontWeight.Bold).fontColor('#444444').width('100%')
-          ForEach(this.comments, (item: string) => { Text(item).fontSize(15).fontColor('#555555').width('100%').padding(12).margin({ top: 8 }).backgroundColor('#F5F5F5'); })
+          ForEach(this.comments, (item: string, index: number) => { Text(item).fontSize(15).fontColor('#555555').width('100%').padding(12).margin({ top: 8 }).backgroundColor('#F5F5F5'); }, (_: string, index: number) => `${index}`)
         }.width('100%').alignItems(HorizontalAlign.Start).padding(16)
       }.layoutWeight(1).width('100%')
       Row() {

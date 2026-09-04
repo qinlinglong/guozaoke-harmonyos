@@ -11,7 +11,7 @@ struct NodesPage {
     Column() {
       Row() { Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back()); Text('节点').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 }); }
         .width('100%').height(60).padding({ left: 16 }).backgroundColor(Color.White)
-      List({ space: 1 }) { ForEach(this.nodes, (node: string) => { ListItem() { Row() { Text(node).fontSize(16).fontColor('#444444'); Blank(); Text('›').fontSize(24).fontColor('#BBBBBB'); }.width('100%').height(56).padding({ left: 16, right: 16 }).backgroundColor(Color.White).onClick(() => router.pushUrl({ url: 'pages/Index', params: { tab: 'node=' + encodeURIComponent(node) } })); } }) }.layoutWeight(1).width('100%')
+      List({ space: 1 }) { ForEach(this.nodes, (node: string) => { ListItem() { Row() { Text(node).fontSize(16).fontColor('#444444'); Blank(); Text('›').fontSize(24).fontColor('#BBBBBB'); }.width('100%').height(56).padding({ left: 16, right: 16 }).backgroundColor(Color.White).onClick(() => router.pushUrl({ url: 'pages/Index', params: { tab: 'node=' + encodeURIComponent(node) } })); } }, (node: string) => node) }.layoutWeight(1).width('100%')
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
   }
 }
