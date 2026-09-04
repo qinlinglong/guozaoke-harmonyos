@@ -50,7 +50,10 @@ export class GuozaokeService {
   }
 
   static isLoggedIn(): boolean {
-    return GuozaokeService.cookie().split(';').some((item: string) => item.trim().startsWith('user='));
+    return GuozaokeService.cookie().split(';').some((item: string) => {
+      const key = item.trim().split('=')[0].toLowerCase();
+      return key === 'user' || key === 'session' || key === 'sid' || key === 'token' || key === 'auth';
+    });
   }
 
   static clearCookies(): void {

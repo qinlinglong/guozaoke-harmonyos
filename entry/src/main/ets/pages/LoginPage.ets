@@ -22,7 +22,9 @@ struct LoginPage {
   checkLogin(): void {
     if (!this.completed && GuozaokeService.isLoggedIn()) {
       this.completed = true;
-      router.back();
+      // Replace the WebView route so a stale H5 fallback page can never remain
+      // underneath the authenticated session.
+      router.replaceUrl({ url: 'pages/Index' });
     }
   }
 
