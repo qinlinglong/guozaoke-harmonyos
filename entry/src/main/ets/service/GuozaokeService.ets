@@ -15,6 +15,14 @@ function firstMatch(source: string, expression: RegExp): string {
   return matched && matched.length > 1 ? decodeHtml(matched[1]) : '';
 }
 
+function normalizeImageUrl(value: string): string {
+  if (value.length === 0) return '';
+  if (value.startsWith('//')) return `https:${value}`;
+  if (value.startsWith('/static/')) return `https://static.guozaoke.com${value}`;
+  if (value.startsWith('/')) return `${BASE_URL}${value}`;
+  return value;
+}
+
 export class GuozaokeService {
   static cookie(): string {
     try {
@@ -67,13 +75,23 @@ export class GuozaokeService {
       topic.title = firstMatch(card, /<h3[^>]*class="[^"]*title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
       topic.author = firstMatch(card, /class="[^"]*username[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
       topic.node = firstMatch(card, /class="[^"]*node[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      topic.avatar = firstMatch(card, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/).replace('//static/', '/static/');
+      topic.avatar = normalizeImageUrl(firstMatch(card, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/));
       topic.replies = firstMatch(card, /class="[^"]*count[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/) || '0';
       if (topic.id.length > 0 && topic.title.length > 0) {
         result.push(topic);
       }
     });
     return result;
+  }
+
+  static async selfProfileUrl(): Promise<string> {
+    try {
+      const html = await GuozaokeService.get('/');
+      const path = firstMatch(html, /href="(\/u\/(?!0(?:["\/]))[A-Za-z0-9_-]+)"/);
+      return path.length > 0 ? `${BASE_URL}${path}` : `${BASE_URL}/`;
+    } catch (_) {
+      return `${BASE_URL}/`;
+    }
   }
 
   static async topicDetail(id: string): Promise<string> {
