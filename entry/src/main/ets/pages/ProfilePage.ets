@@ -20,7 +20,10 @@ struct ProfilePage {
         Column() {
           Stack() {
             Image($r('app.media.background')).width('100%').height(160).objectFit(ImageFit.Cover)
-            Image(this.avatar.length > 0 ? this.avatar : $r('app.media.avatar_placeholder')).width(72).height(72).borderRadius(36).objectFit(ImageFit.Cover).position({ x: 16, y: 124 })
+            Stack() {
+              Image($r('app.media.avatar_placeholder')).width(72).height(72).borderRadius(36).objectFit(ImageFit.Cover)
+              if (this.avatar.length > 0) { Image(this.avatar).width(72).height(72).borderRadius(36).objectFit(ImageFit.Cover) }
+            }.position({ x: 16, y: 124 })
           }.width('100%').height(160)
           Column() {
             Text('过早客用户').fontSize(22).fontColor('#444444')
