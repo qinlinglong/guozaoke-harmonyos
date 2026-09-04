@@ -171,7 +171,8 @@ export class GuozaokeService {
       // Remove non-content blocks before extracting text so tokens are never shown.
       const content: string = item.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '');
       const value: string = decodeHtml(content.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
-      if (value.length > 0 && value.length <= 300 && !/[A-Za-z0-9+/]{80,}/.test(value)) result.push(value);
+      const navigation = ['首页', '节点', '成员', '广告投放', '设置', '退出', '登录', '注册'];
+      if (value.length > 0 && value.length <= 300 && navigation.indexOf(value) < 0 && !/[A-Za-z0-9+/]{80,}/.test(value)) result.push(value);
     });
     return result;
   }
