@@ -151,7 +151,7 @@ export class GuozaokeService {
       if (item.content.length > 0 && item.content.length <= 4000) result.push(item);
     });
     if (result.length === 0) {
-      const replies: Array<string> = html.match(/<(?:span|div|p)[^>]*class="[^\"]*(?:content|comment-content|reply-content|comment-body)[^\"]*"[^>]*>[\s\S]*?<\/(?:span|div|p)>/gi) ?? [];
+      const replies: Array<string> = html.match(/<(?:span|div|p|article)[^>]*class="[^\"]*(?:content|comment|reply)[^\"]*"[^>]*>[\s\S]*?<\/(?:span|div|p|article)>/gi) ?? [];
       replies.forEach((reply: string, index: number) => {
         const item: CommentItem = new CommentItem();
         item.id = `${index + 1}`;
