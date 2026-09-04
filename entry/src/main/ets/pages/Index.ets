@@ -59,7 +59,9 @@ struct Index {
         LoadingProgress().margin({ top: 80 })
       } else if (this.webFallback) {
         Web({ src: this.tab.length > 0 ? `https://www.guozaoke.com/?tab=${this.tab}` : 'https://www.guozaoke.com/', controller: this.controller })
-          .javaScriptAccess(true).domStorageAccess(true).layoutWeight(1).width('100%')
+          .javaScriptAccess(true).domStorageAccess(true)
+          .runJavaScriptOnDocumentEnd([{ script: `document.querySelector('meta[name=viewport]')||document.head.insertAdjacentHTML('beforeend','<meta name=viewport content="width=device-width,initial-scale=1">');var s=document.createElement('style');s.textContent='[id*=ad],[class*=ad],[class*=advert],iframe[src*=ad]{display:none!important}';document.head.appendChild(s);`, scriptRules: ['*'] }])
+          .layoutWeight(1).width('100%')
       } else if (this.message.length > 0) {
         Text(this.message).fontColor('#777777').margin({ top: 80 })
       } else {
@@ -119,7 +121,7 @@ struct Index {
             Text('节点').fontSize(17).fontColor(Color.White).padding(14).width('100%').onClick(() => router.pushUrl({ url: 'pages/NodesPage' }))
             Text('设置').fontSize(17).fontColor(Color.White).padding(14).width('100%').onClick(() => router.pushUrl({ url: 'pages/SettingsPage' }))
             Blank()
-          }.width('78%').height('100%').padding({ left: 20, right: 20 }).backgroundColor('#258DF5').alignItems(HorizontalAlign.Start)
+          }.width('70%').height('100%').padding({ left: 20, right: 20 }).backgroundColor('#258DF5').alignItems(HorizontalAlign.Start)
         }.alignContent(Alignment.TopStart).position({ x: 0, y: 0 }).width('100%').height('100%')
       }
     }.width('100%').height('100%').backgroundColor('#F5F5F5')

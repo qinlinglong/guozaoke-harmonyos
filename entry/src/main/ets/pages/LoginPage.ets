@@ -36,6 +36,7 @@ struct LoginPage {
       Web({ src: LOGIN_URL, controller: this.controller })
         .javaScriptAccess(true)
         .domStorageAccess(true)
+        .runJavaScriptOnDocumentEnd([{ script: `document.querySelector('meta[name=viewport]')||document.head.insertAdjacentHTML('beforeend','<meta name=viewport content="width=device-width,initial-scale=1">');var s=document.createElement('style');s.textContent='[id*=ad],[class*=ad],[class*=advert],iframe[src*=ad]{display:none!important}';document.head.appendChild(s);`, scriptRules: ['*'] }])
         .onPageEnd(() => this.checkLogin())
         .layoutWeight(1).width('100%')
     }.width('100%').height('100%')
