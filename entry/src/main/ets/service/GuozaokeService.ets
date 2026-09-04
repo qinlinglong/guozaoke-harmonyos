@@ -24,6 +24,21 @@ function normalizeImageUrl(value: string): string {
 }
 
 export class GuozaokeService {
+  static parseTopics(html: string): Array<Topic> {
+    const cards: Array<string> = html.match(/<div[^>]*class="[^"]*topic-item[^"]*"[\s\S]*?(?=<div[^>]*class="[^"]*topic-item|<\/main>|<\/body>)/g) ?? [];
+    const result: Array<Topic> = [];
+    cards.forEach((card: string) => {
+      const topic: Topic = new Topic();
+      topic.id = firstMatch(card, /href="\/t\/(\d+)/);
+      topic.title = firstMatch(card, /<h3[^>]*class="[^"]*title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
+      topic.author = firstMatch(card, /class="[^"]*username[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
+      topic.node = firstMatch(card, /class="[^"]*node[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
+      topic.avatar = normalizeImageUrl(firstMatch(card, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/));
+      topic.replies = firstMatch(card, /class="[^"]*count[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/) || '0';
+      if (topic.id.length > 0 && topic.title.length > 0) result.push(topic);
+    });
+    return result;
+  }
   static cookie(): string {
     try {
       return webview.WebCookieManager.fetchCookieSync(BASE_URL);
@@ -67,21 +82,14 @@ export class GuozaokeService {
 
   static async topics(tab: string = ''): Promise<Array<Topic>> {
     const html: string = await GuozaokeService.get(tab.length > 0 ? `/?tab=${tab}` : '/');
-    const cards: Array<string> = html.match(/<div[^>]*class="[^"]*topic-item[^"]*"[\s\S]*?(?=<div[^>]*class="[^"]*topic-item|<\/main>|<\/body>)/g) ?? [];
-    const result: Array<Topic> = [];
-    cards.forEach((card: string) => {
-      const topic: Topic = new Topic();
-      topic.id = firstMatch(card, /href="\/t\/(\d+)/);
-      topic.title = firstMatch(card, /<h3[^>]*class="[^"]*title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      topic.author = firstMatch(card, /class="[^"]*username[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      topic.node = firstMatch(card, /class="[^"]*node[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      topic.avatar = normalizeImageUrl(firstMatch(card, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/));
-      topic.replies = firstMatch(card, /class="[^"]*count[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/) || '0';
-      if (topic.id.length > 0 && topic.title.length > 0) {
-        result.push(topic);
-      }
-    });
-    return result;
+    return GuozaokeService.parseTopics(html);
+  }
+
+  static async userTopics(kind: string): Promise<Array<Topic>> {
+    const profile = await GuozaokeService.selfProfileUrl();
+    const match = profile.match(/\/u\/([A-Za-z0-9_-]+)/);
+    if (!match) return [];
+    return GuozaokeService.parseTopics(await GuozaokeService.get(`/u/${match[1]}/${kind}`));
   }
 
   static async selfProfileUrl(): Promise<string> {
