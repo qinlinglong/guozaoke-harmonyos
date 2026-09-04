@@ -10,6 +10,8 @@
     "pages/NotificationsPage",
     "pages/SettingsPage",
     "pages/NewTopicPage",
-    "pages/AboutPage"
+    "pages/AboutPage",
+    "pages/SettingsEditPage",
+    "pages/BlockedUsersPage"
   ]
 }

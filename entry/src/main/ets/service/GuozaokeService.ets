@@ -4,6 +4,8 @@ import { Topic } from '../model/Topic';
 import { CommentItem } from '../model/CommentItem';
 import { NodeItem } from '../model/NodeItem';
 import { UserProfile } from '../model/UserProfile';
+import { NotificationItem } from '../model/NotificationItem';
+import { TopicDetailData } from '../model/TopicDetailData';
 
 export const BASE_URL: string = 'https://www.guozaoke.com';
 export const LOGIN_URL: string = `${BASE_URL}/login`;
@@ -16,6 +18,11 @@ function decodeHtml(value: string): string {
 function firstMatch(source: string, expression: RegExp): string {
   const matched: RegExpMatchArray | null = source.match(expression);
   return matched && matched.length > 1 ? decodeHtml(matched[1]) : '';
+}
+
+function firstRawMatch(source: string, expression: RegExp): string {
+  const matched: RegExpMatchArray | null = source.match(expression);
+  return matched && matched.length > 1 ? matched[1].trim() : '';
 }
 
 function normalizeImageUrl(value: string): string {
@@ -157,14 +164,70 @@ export class GuozaokeService {
     profile.username = firstMatch(scope, /class="[^"]*username[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span|a)>/i) || safeName;
     profile.number = firstMatch(scope, /class="[^"]*number[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span)>/i);
     profile.since = firstMatch(scope, /class="[^"]*since[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span)>/i);
+    profile.followed = /class=["'][^"']*label-success[^"']*["'][\s\S]*?取消关注/i.test(scope);
+    profile.blocked = /解除屏蔽/i.test(html);
     return profile;
   }
 
-  static async topicDetail(id: string): Promise<string> {
+  static async toggleFollow(username: string): Promise<boolean> {
+    const safeName = username.replace(/[^A-Za-z0-9_-]/g, '');
+    if (safeName.length === 0) return false;
+    await GuozaokeService.get(`/f/user/${safeName}`);
+    return (await GuozaokeService.userProfile(safeName)).followed;
+  }
+
+  static async toggleBlock(username: string, memberNumber: string, currentlyBlocked: boolean): Promise<boolean> {
+    const safeName = username.replace(/[^A-Za-z0-9_-]/g, '');
+    const number = memberNumber.replace(/[^0-9]/g, '');
+    if (safeName.length === 0 || number.length === 0) return currentlyBlocked;
+    await GuozaokeService.get(`/u/${number}/${currentlyBlocked ? 'unblock' : 'block'}`);
+    return (await GuozaokeService.userProfile(safeName)).blocked;
+  }
+
+  static async blockedUsers(): Promise<Array<UserProfile>> {
+    const html = await GuozaokeService.get('/setting/blockedUser');
+    const blocks: Array<string> = html.match(/<div[^>]*class=["'][^"']*member[^"']*["'][^>]*>[\s\S]*?(?=<div[^>]*class=["'][^"']*member[^"']*["']|<\/main>|<\/body>)/gi) ?? [];
+    const users: Array<UserProfile> = [];
+    blocks.forEach((block: string) => {
+      const user = new UserProfile();
+      const usernameMatch = block.match(/<span[^>]*class=["'][^"']*username[^"']*["'][^>]*>[\s\S]*?<a[^>]*href=["']\/u\/([A-Za-z0-9_-]+)["']/i);
+      user.username = usernameMatch ? usernameMatch[1] : '';
+      const avatarTag = block.match(/<img[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
+      user.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
+      if (user.username.length > 0) users.push(user);
+    });
+    return users;
+  }
+
+  static async topicDetail(id: string): Promise<TopicDetailData> {
     const html: string = await GuozaokeService.get(`/t/${id}`);
-    const content: string = firstMatch(html,
+    const detail: TopicDetailData = new TopicDetailData();
+    const headerMatch = html.match(/<div[^>]*class=["'][^"']*topic-detail[^"']*["'][\s\S]*?<div[^>]*class=["'][^"']*ui-header[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*ui-content)/i);
+    const header: string = headerMatch ? headerMatch[0] : html;
+    const avatarTag = header.match(/<img[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
+    detail.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
+    detail.author = firstMatch(header,
+      /<span[^>]*class=["'][^"']*username[^"']*["'][^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
+    const nodeLink = header.match(/<span[^>]*class=["'][^"']*node[^"']*["'][^>]*>[\s\S]*?<a[^>]*href=["']\/node\/([^"'?#]+)[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+    if (nodeLink) {
+      detail.nodeCode = decodeHtml(nodeLink[1]);
+      detail.nodeTitle = decodeHtml(nodeLink[2]);
+    }
+    detail.createdTime = firstMatch(header,
+      /<span[^>]*class=["'][^"']*(?:created-time|last-reply-time)[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+    // Keep the structural markup here. TopicPage converts it to readable
+    // native text while preserving paragraphs, lists and image placeholders.
+    // Running this through firstMatch() used to remove tags too early and
+    // concatenate every paragraph into one visually broken block.
+    detail.content = firstRawMatch(html,
       /<div[^>]*class="[^"]*ui-content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/);
-    return content.length > 0 ? content : '暂时无法解析主题内容';
+    if (detail.content.length === 0) detail.content = '暂时无法解析主题内容';
+    const contentImages: Array<string> = detail.content.match(/<img\b[^>]*>/gi) ?? [];
+    contentImages.forEach((tag: string) => {
+      const url = avatarFromHtml(tag);
+      if (url.length > 0 && !detail.images.includes(url)) detail.images.push(url);
+    });
+    return detail;
   }
 
   static async topicComments(id: string): Promise<Array<CommentItem>> {
@@ -189,7 +252,9 @@ export class GuozaokeService {
       item.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
       const vote = block.match(/<a[^>]*class=["'][^"']*J_replyVote[^"']*["'][^>]*href=["']([^"']*)["'][^>]*data-count=["'](\d+)["']/i);
       if (vote) { item.voteUrl = vote[1]; item.voteCount = Number(vote[2]); }
-      item.content = firstMatch(block, /<(?:span|div)[^>]*class=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/(?:span|div)>/i);
+      // Preserve block markup until the native view formats it. Otherwise
+      // <br>, <p> and <li> boundaries disappear and replies run together.
+      item.content = firstRawMatch(block, /<(?:span|div)[^>]*class=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/(?:span|div)>/i);
       if (item.content.length > 0 && item.content.length <= 4000) result.push(item);
     });
     if (result.length === 0) {
@@ -286,17 +351,26 @@ export class GuozaokeService {
     return safeCode.length > 0 ? GuozaokeService.parseTopics(await GuozaokeService.get(`/node/${safeCode}`)) : [];
   }
 
-  static async notifications(): Promise<Array<string>> {
+  static async notifications(): Promise<Array<NotificationItem>> {
     const html: string = await GuozaokeService.get('/notifications');
-    const result: Array<string> = [];
-    const items: Array<string> = html.match(/<li[^>]*>[\s\S]*?<\/li>/g) ?? [];
-    items.forEach((item: string) => {
-      // The redesigned site may return login/bootstrap scripts inside list markup.
-      // Remove non-content blocks before extracting text so tokens are never shown.
-      const content: string = item.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '');
-      const value: string = decodeHtml(content.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
-      const navigation = ['首页', '节点', '成员', '广告投放', '设置', '退出', '登录', '注册'];
-      if (value.length > 0 && value.length <= 300 && navigation.indexOf(value) < 0 && !/[A-Za-z0-9+/]{80,}/.test(value)) result.push(value);
+    const result: Array<NotificationItem> = [];
+    const blocks: Array<string> = html.match(/<div[^>]*class=["'][^"']*notification-item[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*notification-item|<ul[^>]*class=["'][^"']*pagination|<\/main>|<\/body>)/gi) ?? [];
+    blocks.forEach((block: string) => {
+      const item: NotificationItem = new NotificationItem();
+      const userLink = block.match(/<a[^>]*href=["']\/u\/([A-Za-z0-9_-]+)["'][^>]*>[\s\S]*?<\/a>/i);
+      if (userLink) {
+        item.author = userLink[1];
+        const avatarTag = userLink[0].match(/<img[^>]*>/i);
+        item.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
+      }
+      const titleBlock = block.match(/<span[^>]*class=["'][^"']*title[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+      if (titleBlock) {
+        item.type = /提到了你/.test(decodeHtml(titleBlock[1])) ? '提到了你' : '回复了你';
+        const topic = titleBlock[1].match(/<a[^>]*href=["']\/t\/(\d+)(?:#[^"']*)?["'][^>]*>([\s\S]*?)<\/a>/i);
+        if (topic) { item.topicId = topic[1]; item.topicTitle = decodeHtml(topic[2]); }
+      }
+      item.content = firstMatch(block, /<div[^>]*class=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+      if (item.author.length > 0 && item.topicId.length > 0) result.push(item);
     });
     return result;
   }

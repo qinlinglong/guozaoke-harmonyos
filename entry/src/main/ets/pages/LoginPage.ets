@@ -19,9 +19,14 @@ struct LoginPage {
     }
   }
 
-  checkLogin(): void {
+  async checkLogin(): Promise<void> {
     if (!this.completed && GuozaokeService.isLoggedIn()) {
       this.completed = true;
+      // The Web engine normally flushes cookies every 30 seconds. Login can
+      // finish and return to the native page much faster than that, so force a
+      // disk flush before replacing the route to avoid losing the new session
+      // when the process is closed immediately afterwards.
+      try { await webview.WebCookieManager.saveCookieAsync(); } catch (_) {}
       // Replace the WebView route so a stale H5 fallback page can never remain
       // underneath the authenticated session.
       router.replaceUrl({ url: 'pages/Index' });

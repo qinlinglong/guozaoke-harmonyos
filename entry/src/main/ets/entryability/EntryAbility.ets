@@ -58,6 +58,11 @@ export default class EntryAbility extends UIAbility {
         hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
         return;
       }
+      // PersistentStorage depends on an initialized UI instance. Calling it
+      // from onCreate silently fails on HarmonyOS 6; the loadContent callback
+      // is the first supported lifecycle point.
+      PersistentStorage.persistProp('commentsOrderDesc', false);
+      PersistentStorage.persistProp('imageBedApiKey', '');
       hilog.info(DOMAIN, 'testTag', 'Succeeded in loading the content.');
     });
   }

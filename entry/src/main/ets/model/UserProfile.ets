@@ -3,4 +3,6 @@ export class UserProfile {
   avatar: string = '';
   number: string = '';
   since: string = '';
+  followed: boolean = false;
+  blocked: boolean = false;
 }
