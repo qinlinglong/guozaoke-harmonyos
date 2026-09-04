@@ -26,7 +26,10 @@ struct Index {
     this.loading = true;
     this.message = '';
     try {
-      this.topics = await GuozaokeService.topics(this.tab);
+      const timeout = new Promise<Array<Topic>>((_, reject) => {
+        setTimeout(() => reject(new Error('native request timeout')), 12000);
+      });
+      this.topics = await Promise.race([GuozaokeService.topics(this.tab), timeout]);
       if (this.topics.length === 0) {
         this.message = '正在加载社区内容…';
         this.webFallback = true;

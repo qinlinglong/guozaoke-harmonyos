@@ -45,6 +45,10 @@ export class GuozaokeService {
           'Cache-Control': 'no-cache',
           'Cookie': GuozaokeService.cookie()
         },
+        // Avoid leaving the native home screen in an endless loading state when
+        // the redesigned site or network does not answer promptly.
+        connectTimeout: 8000,
+        readTimeout: 10000,
         expectDataType: http.HttpDataType.STRING
       });
       return response.result as string;
