@@ -41,7 +41,14 @@ struct TopicPage {
         Text('分享').fontSize(14).fontColor('#1677C8')
       }.width('100%').height(60).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
       Web({ src: this.topicUrl, controller: this.controller })
-        .javaScriptAccess(true).domStorageAccess(true).layoutWeight(1).width('100%')
+        .javaScriptAccess(true).domStorageAccess(true)
+        // Some redesigned pages still reference the old static host. Replace failed
+        // image requests so the detail page never shows broken-image placeholders.
+        .runJavaScriptOnDocumentEnd([{
+          script: `document.querySelectorAll('img').forEach(function(i){i.addEventListener('error',function(){if(!i.dataset.guozaokeFallback){i.dataset.guozaokeFallback='1';i.src='https://static.guozaoke.com/static/avatar/m_default.gif';}});});`,
+          scriptRules: ['*']
+        }])
+        .layoutWeight(1).width('100%')
     }.width('100%').height('100%')
       .backgroundColor('#F5F7FA')
   }
