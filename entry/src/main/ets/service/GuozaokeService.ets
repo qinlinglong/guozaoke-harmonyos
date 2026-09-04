@@ -17,11 +17,20 @@ function firstMatch(source: string, expression: RegExp): string {
 }
 
 function normalizeImageUrl(value: string): string {
-  if (value.length === 0) return '';
-  if (value.startsWith('//')) return `https:${value}`;
-  if (value.startsWith('/static/')) return `https://static.guozaoke.com${value}`;
-  if (value.startsWith('/')) return `${BASE_URL}${value}`;
-  return value;
+  const clean: string = value.trim().replace(/^['"]|['"]$/g, '');
+  if (clean.length === 0 || clean.startsWith('data:')) return '';
+  if (clean.startsWith('//')) return `https:${clean}`;
+  if (clean.startsWith('/static/')) return `https://static.guozaoke.com${clean}`;
+  if (clean.startsWith('/')) return `${BASE_URL}${clean}`;
+  return clean;
+}
+
+function avatarFromHtml(source: string): string {
+  // The redesigned site lazy-loads avatars via data-src/data-original on
+  // some pages, while the legacy markup uses src. Accept all three forms.
+  const image = source.match(/<(?:img|image)\b[^>]*(?:src|data-src|data-original)=["']([^"']+)["'][^>]*>/i);
+  if (!image || image.length < 2) return '';
+  return normalizeImageUrl(image[1]);
 }
 
 export class GuozaokeService {
@@ -34,9 +43,8 @@ export class GuozaokeService {
       topic.title = firstMatch(card, /<h3[^>]*class="[^"]*title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
       topic.author = firstMatch(card, /class="[^"]*username[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
       topic.node = firstMatch(card, /class="[^"]*node[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      const avatarSrc = firstMatch(card, /<img[^>]*src="([^"]+)"[^>]*class="[^"]*avatar[^"]*"/) ||
-        firstMatch(card, /<img[^>]*class="[^"]*avatar[^"]*"[^>]*src="([^"]+)"/);
-      topic.avatar = normalizeImageUrl(avatarSrc);
+      const avatarTag = card.match(/<(?:img|image)\b[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
+      topic.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : avatarFromHtml(card);
       topic.replies = firstMatch(card, /class="[^"]*count[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/) || '0';
       if (topic.id.length > 0 && topic.title.length > 0) result.push(topic);
     });
@@ -113,9 +121,8 @@ export class GuozaokeService {
       const profileUrl = await GuozaokeService.selfProfileUrl();
       const path = profileUrl.replace(BASE_URL, '');
       const html = await GuozaokeService.get(path);
-      const src = firstMatch(html, /<img[^>]*class="[^\"]*avatar[^\"]*"[^>]*src="([^\"]+)"/) ||
-        firstMatch(html, /<img[^>]*src="([^\"]+)"[^>]*class="[^\"]*avatar[^\"]*"/);
-      return normalizeImageUrl(src);
+      const avatarTag = html.match(/<(?:img|image)\b[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
+      return avatarTag ? avatarFromHtml(avatarTag[0]) : '';
     } catch (_) { return ''; }
   }
 

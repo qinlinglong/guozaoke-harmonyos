@@ -111,8 +111,15 @@ struct Index {
             ListItem() {
               Column() {
                 Row() {
-                  Image(topic.avatar.length > 0 ? topic.avatar : $r('app.media.avatar_placeholder'))
-                    .width(20).height(20).borderRadius(10).objectFit(ImageFit.Cover)
+                  Stack() {
+                    // Keep the local avatar visible if the CDN image is slow,
+                    // blocked, or returns an unsupported animated format.
+                    Image($r('app.media.avatar_placeholder'))
+                      .width(20).height(20).borderRadius(10).objectFit(ImageFit.Cover)
+                    if (topic.avatar.length > 0) {
+                      Image(topic.avatar).width(20).height(20).borderRadius(10).objectFit(ImageFit.Cover)
+                    }
+                  }
                   Text(topic.author).fontSize(14).fontColor('#444444').margin({ left: 8 })
                   Blank()
                   Text(topic.node).fontSize(12).fontColor('#BBBBBB').maxLines(1)
@@ -134,8 +141,8 @@ struct Index {
         }.layoutWeight(1).width('100%')
       }
 
-      Image($r('app.media.pixel_icon')).width(56).height(56).borderRadius(28)
-        .position({ x: '80%', y: '82%' }).shadow({ radius: 8, color: '#55000000', offsetY: 3 })
+      Image($r('app.media.pixel_icon')).width(46).height(46).borderRadius(23)
+        .position({ x: '84%', y: '84%' }).shadow({ radius: 8, color: '#55000000', offsetY: 3 })
         .onClick(() => router.pushUrl({ url: 'pages/NewTopicPage' }))
       if (this.drawerOpen) {
         Stack() {
@@ -149,7 +156,15 @@ struct Index {
                   Image($r('app.media.avatar_placeholder')).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover)
                   if (this.selfAvatar.length > 0) { Image(this.selfAvatar).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover) }
                 }
-                Blank(); Text('×').fontSize(28).fontColor(Color.White).onClick(() => this.drawerOpen = false)
+                Blank()
+                Row() {
+                  Image($r('app.media.ic_search')).width(22).height(22).objectFit(ImageFit.Contain)
+                }.width(42).height(42).justifyContent(FlexAlign.Center)
+                  .onClick(() => { this.drawerOpen = false; router.pushUrl({ url: 'pages/SearchPage' }); })
+                Row() {
+                  Text('×').fontSize(28).fontColor(Color.White)
+                }.width(42).height(42).justifyContent(FlexAlign.Center)
+                  .onClick(() => this.drawerOpen = false)
               }
                 .width('100%').padding({ top: 24, bottom: 14 })
               Text(GuozaokeService.isLoggedIn() ? '过早客用户' : '未登录').fontSize(18).fontWeight(FontWeight.Medium).fontColor(Color.White).width('100%')
