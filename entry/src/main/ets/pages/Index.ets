@@ -113,7 +113,7 @@ struct Index {
             Blank()
           }.width('78%').height('100%').padding({ left: 20, right: 20 }).backgroundColor('#258DF5').alignItems(HorizontalAlign.Start)
           Row().width('22%').height('100%').backgroundColor('#00000055').onClick(() => this.drawerOpen = false)
-        }.position({ x: 0, y: 0 }).width('100%').height('100%')
+        }.alignContent(Alignment.TopStart).position({ x: 0, y: 0 }).width('100%').height('100%')
       }
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
   }

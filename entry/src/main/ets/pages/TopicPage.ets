@@ -45,7 +45,7 @@ struct TopicPage {
         // Some redesigned pages still reference the old static host. Replace failed
         // image requests so the detail page never shows broken-image placeholders.
         .runJavaScriptOnDocumentEnd([{
-          script: `document.querySelectorAll('img').forEach(function(i){i.addEventListener('error',function(){if(!i.dataset.guozaokeFallback){i.dataset.guozaokeFallback='1';i.src='https://static.guozaoke.com/static/avatar/m_default.gif';}});});`,
+          script: `document.querySelector('meta[name=viewport]')||document.head.insertAdjacentHTML('beforeend','<meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1">');document.querySelectorAll('img').forEach(function(i){i.addEventListener('error',function(){if(!i.dataset.guozaokeFallback){i.dataset.guozaokeFallback='1';i.src='https://static.guozaoke.com/static/avatar/m_default.gif';}});});`,
           scriptRules: ['*']
         }])
         .layoutWeight(1).width('100%')
