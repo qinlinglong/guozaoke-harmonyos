@@ -51,7 +51,7 @@ struct Index {
         Text('♢').fontSize(24).fontColor(Color.White).margin({ left: 18 })
           .onClick(() => router.pushUrl({ url: 'pages/NotificationsPage' }))
       }
-      .width('100%').height(76).padding({ left: 20, right: 20 }).backgroundColor('#1677C8')
+      .width('100%').height(68).padding({ left: 20, right: 20 }).backgroundColor('#1677C8')
 
       if (this.loading) {
         LoadingProgress().margin({ top: 80 })
@@ -61,12 +61,12 @@ struct Index {
       } else if (this.message.length > 0) {
         Text(this.message).fontColor('#777777').margin({ top: 80 })
       } else {
-        Row({ space: 22 }) {
-          Text('最新').fontColor(this.tab === 'latest' ? '#2389E8' : '#777777').onClick(() => { this.tab = 'latest'; this.loadTopics(); })
-          Text('精华').fontColor(this.tab === 'elite' ? '#2389E8' : '#777777').onClick(() => { this.tab = 'elite'; this.loadTopics(); })
-          Text('关注').fontColor(this.tab === 'follows' ? '#2389E8' : '#777777').onClick(() => { this.tab = 'follows'; this.loadTopics(); })
-          Text('全部').fontColor(this.tab === '' ? '#2389E8' : '#777777').onClick(() => { this.tab = ''; this.loadTopics(); })
-        }.width('100%').padding({ left: 20, top: 14, bottom: 12 }).backgroundColor(Color.White)
+        Row() {
+          Text('最新').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'latest' ? '#1677C8' : '#6E7B88').onClick(() => { this.tab = 'latest'; this.loadTopics(); })
+          Text('精华').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'elite' ? '#1677C8' : '#6E7B88').onClick(() => { this.tab = 'elite'; this.loadTopics(); })
+          Text('关注').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === 'follows' ? '#1677C8' : '#6E7B88').onClick(() => { this.tab = 'follows'; this.loadTopics(); })
+          Text('全部').layoutWeight(1).textAlign(TextAlign.Center).fontColor(this.tab === '' ? '#1677C8' : '#6E7B88').onClick(() => { this.tab = ''; this.loadTopics(); })
+        }.width('100%').height(52).padding({ left: 10, right: 10 }).backgroundColor(Color.White)
         List({ space: 1 }) {
           ForEach(this.topics, (topic: Topic) => {
             ListItem() {
@@ -74,7 +74,7 @@ struct Index {
                 Image(topic.avatar.length > 0 ? topic.avatar : $r('app.media.default_avatar'))
                   .width(46).height(46).borderRadius(23).objectFit(ImageFit.Cover)
                 Column({ space: 6 }) {
-                  Text(topic.title).fontSize(16).fontWeight(FontWeight.Medium).fontColor('#182433').maxLines(2)
+                  Text(topic.title).fontSize(15).fontWeight(FontWeight.Medium).fontColor('#182433').maxLines(2)
                   Row({ space: 8 }) {
                     Text(topic.node).fontSize(12).fontColor('#1677C8')
                     Text(topic.author).fontSize(12).fontColor('#8A96A3')
@@ -94,16 +94,16 @@ struct Index {
       }
 
       Row() {
-        Column({ space: 3 }) { Text('⌂').fontSize(22).fontColor('#1677C8'); Text('首页').fontSize(12).fontColor('#1677C8'); }
+        Column({ space: 3 }) { Text('首页').fontSize(14).fontWeight(FontWeight.Medium).fontColor('#1677C8'); }
           .layoutWeight(1).alignItems(HorizontalAlign.Center)
-        Column({ space: 3 }) { Text('◇').fontSize(22).fontColor('#647383'); Text('节点').fontSize(12).fontColor('#647383'); }
+        Column({ space: 3 }) { Text('节点').fontSize(14).fontColor('#647383'); }
           .layoutWeight(1).alignItems(HorizontalAlign.Center)
           .onClick(() => router.pushUrl({ url: 'pages/NodesPage' }))
-        Column({ space: 3 }) { Text('●').fontSize(22).fontColor('#647383'); Text(GuozaokeService.isLoggedIn() ? '我的' : '登录').fontSize(12).fontColor('#647383'); }
+        Column({ space: 3 }) { Text(GuozaokeService.isLoggedIn() ? '我的' : '登录').fontSize(14).fontColor('#647383'); }
           .layoutWeight(1).alignItems(HorizontalAlign.Center)
           .onClick(() => router.pushUrl({ url: GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage' }))
       }
-      .width('100%').height(64).backgroundColor(Color.White).padding({ top: 6, bottom: 6 })
+      .width('100%').height(54).backgroundColor(Color.White).padding({ top: 6, bottom: 6 })
       .border({ width: { top: 1 }, color: '#EEEEEE' })
       Button('+ 发表主题').position({ x: '70%', y: '78%' }).height(44).borderRadius(22)
         .backgroundColor('#1677C8').onClick(() => router.pushUrl({ url: 'pages/NewTopicPage' }))
