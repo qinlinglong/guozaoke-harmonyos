@@ -81,7 +81,7 @@ struct TopicPage {
           }.width('100%').padding({ top: 20, bottom: 10, left: 4, right: 4 })
           ForEach(this.comments, (item: CommentItem, index: number) => {
             Row() {
-              Image(item.avatar.length > 0 ? item.avatar : $r('app.media.default_avatar')).width(34).height(34).borderRadius(17).objectFit(ImageFit.Cover)
+              Image(item.avatar.length > 0 ? item.avatar : $r('app.media.avatar_placeholder')).width(34).height(34).borderRadius(17).objectFit(ImageFit.Cover)
               Column() {
                 Row() {
                   Text(item.author.length > 0 ? item.author : `用户 ${index + 1}`).fontSize(13).fontColor('#3B82F6').fontWeight(FontWeight.Medium)

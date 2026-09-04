@@ -111,7 +111,7 @@ struct Index {
             ListItem() {
               Column() {
                 Row() {
-                  Image(topic.avatar.length > 0 ? topic.avatar : $r('app.media.default_avatar'))
+                  Image(topic.avatar.length > 0 ? topic.avatar : $r('app.media.avatar_placeholder'))
                     .width(20).height(20).borderRadius(10).objectFit(ImageFit.Cover)
                   Text(topic.author).fontSize(14).fontColor('#444444').margin({ left: 8 })
                   Blank()
@@ -144,7 +144,7 @@ struct Index {
             .onClick(() => this.drawerOpen = false)
           Column() {
             Column() {
-              Row() { Image(this.selfAvatar.length > 0 ? this.selfAvatar : $r('app.media.default_avatar')).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover); Blank(); Text('×').fontSize(28).fontColor(Color.White).onClick(() => this.drawerOpen = false) }
+              Row() { Image(this.selfAvatar.length > 0 ? this.selfAvatar : $r('app.media.avatar_placeholder')).width(64).height(64).borderRadius(32).objectFit(ImageFit.Cover); Blank(); Text('×').fontSize(28).fontColor(Color.White).onClick(() => this.drawerOpen = false) }
                 .width('100%').padding({ top: 24, bottom: 14 })
               Text(GuozaokeService.isLoggedIn() ? '过早客用户' : '未登录').fontSize(18).fontWeight(FontWeight.Medium).fontColor(Color.White).width('100%')
               Text(GuozaokeService.isLoggedIn() ? '已登录 · guozaoke.com' : '登录后参与讨论').fontSize(12).fontColor('#D7E8FF').width('100%').margin({ top: 6, bottom: 20 })
@@ -153,7 +153,9 @@ struct Index {
               this.drawerItem('ic_person', GuozaokeService.isLoggedIn() ? '个人中心' : '登录', () => router.pushUrl({ url: GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage' }))
               this.drawerItem('ic_favorite', '我的收藏', () => router.pushUrl({ url: 'pages/TopicListPage', params: { kind: 'favorites' } }))
               this.drawerItem('ic_nodes', '节点', () => router.pushUrl({ url: 'pages/NodesPage' }))
+              this.drawerItem('ic_help', '新手指南', () => router.pushUrl({ url: 'pages/TopicPage', params: { id: '2657', title: '新手指南' } }))
               this.drawerItem('ic_settings_menu', '设置', () => router.pushUrl({ url: 'pages/SettingsPage' }))
+              this.drawerItem('ic_info', '关于', () => router.pushUrl({ url: 'pages/AboutPage' }))
             }.width('100%').backgroundColor(Color.White)
             Blank()
           }.width('82%').height('100%').backgroundColor('#F5F6F8').shadow({ radius: 16, color: '#55000000', offsetX: 4 })

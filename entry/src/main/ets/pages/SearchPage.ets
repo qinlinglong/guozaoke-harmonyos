@@ -22,7 +22,7 @@ struct SearchPage {
         .width('92%').height(48).margin({ top: 16 })
       Button('搜索').width('92%').height(44).margin({ top: 12 }).backgroundColor('#258DF5').onClick(() => this.search())
       if (this.loading) { LoadingProgress().margin({ top: 40 }); }
-      List({ space: 1 }) { ForEach(this.topics, (topic: Topic) => { ListItem() { Row() { Image(topic.avatar || $r('app.media.default_avatar')).width(32).height(32).borderRadius(16); Text(topic.title).fontSize(16).fontColor('#444444').margin({ left: 12 }).layoutWeight(1); Text(topic.replies + ' 回复').fontSize(12).fontColor('#999999'); }.width('100%').padding(16).backgroundColor(Color.White).onClick(() => router.pushUrl({ url: 'pages/TopicPage', params: { id: topic.id, title: topic.title } })); } }, (topic: Topic) => topic.id) }.layoutWeight(1).width('100%').margin({ top: 16 })
+      List({ space: 1 }) { ForEach(this.topics, (topic: Topic) => { ListItem() { Row() { Image(topic.avatar || $r('app.media.avatar_placeholder')).width(32).height(32).borderRadius(16); Text(topic.title).fontSize(16).fontColor('#444444').margin({ left: 12 }).layoutWeight(1); Text(topic.replies + ' 回复').fontSize(12).fontColor('#999999'); }.width('100%').padding(16).backgroundColor(Color.White).onClick(() => router.pushUrl({ url: 'pages/TopicPage', params: { id: topic.id, title: topic.title } })); } }, (topic: Topic) => topic.id) }.layoutWeight(1).width('100%').margin({ top: 16 })
     }.width('100%').height('100%').backgroundColor('#F5F5F5')
   }
 }
