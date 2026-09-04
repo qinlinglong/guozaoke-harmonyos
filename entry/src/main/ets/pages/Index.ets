@@ -59,18 +59,18 @@ struct Index {
   build() {
     Column() {
       Row() {
-        Image($r('app.media.ic_menu')).width(24).height(24).objectFit(ImageFit.Contain)
-          .width(44).height(56)
+        Row() { Image($r('app.media.ic_menu')).width(24).height(24).objectFit(ImageFit.Contain) }
+          .width(44).height(56).justifyContent(FlexAlign.Center)
           .onClick(() => setTimeout(() => this.drawerOpen = true, 80))
         Text('过早客').fontSize(20).fontWeight(FontWeight.Medium).fontColor(Color.White).margin({ left: 22 })
         Blank()
-        Image($r('app.media.ic_refresh')).width(24).height(24).objectFit(ImageFit.Contain)
-          .width(44).height(56).onClick(() => this.loadTopics())
-        Image($r('app.media.ic_search')).width(24).height(24).objectFit(ImageFit.Contain)
-          .width(44).height(56)
+        Row() { Image($r('app.media.ic_refresh')).width(24).height(24).objectFit(ImageFit.Contain) }
+          .width(44).height(56).justifyContent(FlexAlign.Center).onClick(() => this.loadTopics())
+        Row() { Image($r('app.media.ic_search')).width(24).height(24).objectFit(ImageFit.Contain) }
+          .width(44).height(56).justifyContent(FlexAlign.Center)
           .onClick(() => router.pushUrl({ url: 'pages/SearchPage' }))
-        Image($r('app.media.ic_notifications')).width(24).height(24).objectFit(ImageFit.Contain)
-          .width(44).height(56)
+        Row() { Image($r('app.media.ic_notifications')).width(24).height(24).objectFit(ImageFit.Contain) }
+          .width(44).height(56).justifyContent(FlexAlign.Center)
           .onClick(() => router.pushUrl({ url: 'pages/NotificationsPage' }))
       }
       .width('100%').height(56).padding({ left: 18, right: 18 }).backgroundColor('#258DF5')

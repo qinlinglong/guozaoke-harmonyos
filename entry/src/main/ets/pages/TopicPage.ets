@@ -3,9 +3,12 @@ import { GuozaokeService } from '../service/GuozaokeService';
 
 function htmlText(value: string): string {
   return value.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<br\s*\/?\s*>/gi, '\n').replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<br\s*\/?\s*>/gi, '\n').replace(/<\/(p|div|li|h[1-6]|blockquote|section)>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ').replace(/<img[^>]*>/gi, '[图片] ')
     .replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+    .replace(/[ \t]+/g, ' ').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n')
+    .replace(/(^|\n)(加入收藏|新浪微博|分享到微信|❤️?赞|\d+ 次点击|\d+ 人赞|\d+ 人收藏)(?=\n|$)/g, '$1').trim();
 }
 
 @Entry
@@ -52,9 +55,9 @@ struct TopicPage {
       Scroll() {
         Column() {
           Column() {
-            Text(this.title).fontSize(20).fontWeight(FontWeight.Bold).fontColor('#202124').lineHeight(28).width('100%')
+            Text(this.title).fontSize(18).fontWeight(FontWeight.Bold).fontColor('#202124').lineHeight(26).width('100%')
             Text('过早客 · 主题').fontSize(13).fontColor('#8A9199').margin({ top: 8, bottom: 16 }).width('100%')
-            Text(this.body).fontSize(15).fontColor('#3C4043').lineHeight(24).width('100%')
+            Text(this.body).fontSize(14).fontColor('#3C4043').lineHeight(22).width('100%')
           }.width('100%').padding(18).backgroundColor(Color.White).borderRadius(10)
           Row() {
             Text(`评论 ${this.comments.length}`).fontSize(17).fontWeight(FontWeight.Medium).fontColor('#30343B')
@@ -66,7 +69,7 @@ struct TopicPage {
               Image($r('app.media.default_avatar')).width(32).height(32).borderRadius(16).objectFit(ImageFit.Cover)
               Column() {
                 Row() { Text(`用户 ${index + 1}`).fontSize(13).fontColor('#5F6368'); Blank(); Text(`#${index + 1}`).fontSize(12).fontColor('#A0A5AB'); }.width('100%')
-                Text(item).fontSize(15).fontColor('#3C4043').lineHeight(22).width('100%').margin({ top: 6 })
+                Text(item).fontSize(14).fontColor('#3C4043').lineHeight(21).width('100%').margin({ top: 6 })
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
             }.width('100%').padding(14).backgroundColor(Color.White).borderRadius(8).margin({ bottom: 8 })
           }, (_: string, index: number) => `${index}`)
