@@ -246,7 +246,10 @@ struct TopicPage {
       this.topicVoteUrl = topic.voteUrl;
       this.topicVoted = topic.voted;
       this.selfName = await GuozaokeService.selfUsername();
-      this.canEdit = this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName;
+      // H5 controls the edit window (including its time limit) by rendering
+      // the edit link only while the reply/topic is editable. Mirror that
+      // decision instead of allowing every historical own reply to be edited.
+      this.canEdit = topic.editUrl.length > 0 && this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName;
       const commentResult: CommentListResult = detail[1];
       this.markEditable(commentResult.items);
       this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
@@ -266,9 +269,6 @@ struct TopicPage {
   }
 
   private markEditable(items: Array<CommentItem>): Array<CommentItem> {
-    items.forEach((item: CommentItem) => {
-      item.editable = item.editable || (item.author.length > 0 && item.author === this.selfName && item.id.length > 0);
-    });
     return items;
   }
 
@@ -555,10 +555,6 @@ struct TopicPage {
               }, (url: string) => url)
             }
           }.width('100%').padding(18).backgroundColor(Color.White).borderRadius(10)
-          if (this.editedTime.length > 0) {
-            Text(`本帖最后于 ${this.editedTime} 编辑`).fontSize(12).fontColor('#8A9199')
-              .width('100%').textAlign(TextAlign.End).margin({ top: 6, right: 8 })
-          }
           // Keep the primary actions directly under the post body. They are
           // intentionally grouped together instead of spreading across the
           // row, which mirrors the compact action area in the H5 client.
@@ -590,7 +586,11 @@ struct TopicPage {
           // Secondary metadata stays on its own line so the actions remain
           // easy to hit and the counts are visually subordinate.
           Row() {
+            if (this.editedTime.length > 0) {
+              Text(`本帖最后于 ${this.editedTime} 编辑`).fontSize(12).fontColor('#8A9199')
+            }
             Text(`${this.viewCount} 次点击`).fontSize(12).fontColor('#8A9199')
+              .margin({ left: this.editedTime.length > 0 ? 14 : 0 })
             Blank()
             Text(`${this.favoriteCount} 人收藏`).fontSize(12).fontColor('#8A9199')
             Text(`${this.voteCount} 人赞`).fontSize(12).fontColor(this.topicVoted ? '#F59E0B' : '#8A9199').margin({ left: 12 })
