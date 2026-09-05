@@ -446,7 +446,9 @@ export class GuozaokeService {
     if (topicVote) {
       const voteHref = topicVote[0].match(/(?:href|data-href)=["']([^"']+)["']/i);
       detail.voteUrl = voteHref && voteHref.length > 1 ? voteHref[1] : '';
-      detail.voted = /(?:已赞|取消赞|unvote)/i.test(topicVote[0]) || /data-type=["'](?:unvote|voted)["']/i.test(topicVote[0]);
+      detail.voted = /(?:已赞|取消赞|unvote)/i.test(topicVote[0]) ||
+        /data-(?:type|voted|status)=["'](?:unvote|voted|1|true)["']/i.test(topicVote[0]) ||
+        /class=["'][^"']*(?:voted|is-voted|active)[^"']*["']/i.test(topicVote[0]);
     } else {
       detail.voted = /(?:已赞|取消赞|unvote)/i.test(visible);
     }

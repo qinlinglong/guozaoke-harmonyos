@@ -8,6 +8,11 @@ import { TopicDetailData } from '../model/TopicDetailData';
 import { ContentPart } from '../model/ContentPart';
 import { CommentListResult } from '../model/CommentListResult';
 
+// Keep the H5 vote result stable while navigating away and back to a detail
+// page. The server remains authoritative; this only bridges pages when the
+// redesigned markup omits the per-user voted flag on a subsequent GET.
+const localVotedTopics: Set<string> = new Set<string>();
+
 function emojiAlias(name: string): string {
   switch (name.toLowerCase()) {
     case '+1': case 'thumbsup': return '👍'; case '-1': case 'thumbsdown': return '👎'; case '100': return '💯';
@@ -253,7 +258,7 @@ struct TopicPage {
       this.favoriteCount = topic.favoriteCount;
       this.voteCount = topic.voteCount;
       this.topicVoteUrl = topic.voteUrl;
-      this.topicVoted = topic.voted;
+      this.topicVoted = topic.voted || localVotedTopics.has(this.topicId);
       this.selfName = await GuozaokeService.selfUsername();
       // H5 controls the edit window (including its time limit) by rendering
       // the edit link only while the reply/topic is editable. Mirror that
@@ -320,6 +325,7 @@ struct TopicPage {
       const ok = await GuozaokeService.vote(this.topicVoteUrl);
       if (ok) {
         this.topicVoted = true;
+        localVotedTopics.add(this.topicId);
         this.voteCount += 1;
         this.notify('点赞成功');
       } else this.notify('点赞失败，请稍后重试');
