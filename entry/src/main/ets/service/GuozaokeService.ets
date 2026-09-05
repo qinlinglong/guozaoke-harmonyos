@@ -135,6 +135,30 @@ function replyPageFromHtml(html: string, page: number): TopicListResult {
   return result;
 }
 
+function searchPageFromHtml(html: string, keyword: string, page: number): TopicListResult {
+  const needle = keyword.toLocaleLowerCase();
+  const result = new TopicListResult();
+  let cards: Array<string> = html.match(/<(?:div|article|li)[^>]*class=["'][^"']*(?:search-(?:result|item)|result-item|topic-item)[^"']*["'][\s\S]*?(?=<(?:div|article|li)[^>]*class=["'][^"']*(?:search-(?:result|item)|result-item|topic-item)|<\/main>|<\/body>)/gi) ?? [];
+  if (cards.length === 0) cards = html.match(/<a\b[^>]*href=["'](?:https?:\/\/[^"']+)?\/t\/(\d+)(?:#[^"']*)?["'][^>]*>[\s\S]*?<\/a>/gi) ?? [];
+  cards.forEach((card: string) => {
+    if (decodeHtml(card).toLocaleLowerCase().indexOf(needle) < 0) return;
+    const id = firstMatch(card, /href=["'](?:https?:\/\/[^"']+)?\/t\/(\d+)/i);
+    if (id.length === 0 || result.topics.some((topic: Topic) => topic.id === id)) return;
+    const title = firstMatch(card, /<h[1-4][^>]*class=["'][^"']*(?:title|topic-title)[^"']*["'][^>]*>([\s\S]*?)<\/h[1-4]>/i) ||
+      firstMatch(card, /<a\b[^>]*href=["'][^"']*\/t\/\d+[^"']*["'][^>]*>([\s\S]*?)<\/a>/i);
+    if (title.length === 0) return;
+    const topic = new Topic();
+    topic.id = id;
+    topic.title = title;
+    topic.author = firstMatch(card, /class=["'][^"']*username[^"']*["'][^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
+    topic.node = firstMatch(card, /class=["'][^"']*node[^"']*["'][^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
+    topic.replies = firstMatch(card, /class=["'][^"']*count[^"']*["'][\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i) || '0';
+    result.topics.push(topic);
+  });
+  result.hasMore = result.topics.length > 0 && hasNextPage(html, page);
+  return result;
+}
+
 function appendNode(result: Array<NodeItem>, codeValue: string, titleValue: string): void {
   let decodedCode: string = codeValue;
   try { decodedCode = decodeURIComponent(codeValue); } catch (_) { }
@@ -276,13 +300,18 @@ export class GuozaokeService {
         // Some deployments redirect an unknown search route to the home page.
         // Never expose that page as a false-positive search result: retain only
         // cards whose title, author, node, or excerpt contains the keyword.
-        const cards: Array<string> = html.match(/<div[^>]*class=["'][^"']*topic-item[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*topic-item|<\/main>|<\/body>)/gi) ?? [];
-        const needle = value.toLocaleLowerCase();
-        const matchedCards = cards.filter((card: string) => decodeHtml(card).toLocaleLowerCase().indexOf(needle) >= 0);
-        if (matchedCards.length > 0) {
-          const result = topicPageFromHtml(matchedCards.join('\n'), page);
-          if (result.topics.length > 0) return result;
-        }
+        const result = searchPageFromHtml(html, value, page);
+        if (result.topics.length > 0) return result;
+      } catch (_) { }
+    }
+    // Some redesigned deployments do not expose a public /search route.
+    // Search the same live topic feeds used by the home tabs as a compatible
+    // fallback, so title/body/author/node searches still return native topics.
+    const feeds: Array<string> = ['/', '/?tab=latest', '/?tab=excellent'];
+    for (const feed of feeds) {
+      try {
+        const result = searchPageFromHtml(await GuozaokeService.get(pagePath(feed, page)), value, page);
+        if (result.topics.length > 0) return result;
       } catch (_) { }
     }
     return empty;
