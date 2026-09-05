@@ -61,7 +61,7 @@ struct NewTopicPage {
   }
   build() {
     Column() {
-      Row() { Text('‹').fontSize(32).fontColor(this.themeColor).onClick(() => setTimeout(() => router.back(), 80)); Text(this.editing ? '编辑主题' : '发表主题').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 }); Blank(); Text(this.uploading ? '上传中…' : '图片').fontSize(14).fontColor(this.uploading ? '#A0A5AB' : this.themeColor).margin({ right: 14 }).onClick(() => this.chooseAndUploadImage()); Text(this.submitting ? (this.editing ? '保存中…' : '发布中…') : (this.editing ? '保存' : '发布')).fontSize(16).fontColor(this.submitting ? '#A0A5AB' : this.themeColor).onClick(async () => {
+      Row() { Text('‹').fontSize(32).fontColor(this.themeColor).onClick(() => setTimeout(() => router.back(), 80)); Text(this.editing ? '编辑主题' : '发表主题').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 }); Blank(); Text(this.uploading ? '上传中…' : '图片').fontSize(14).fontColor(this.uploading ? '#A0A5AB' : this.themeColor).margin({ right: 14 }).onClick(() => this.chooseAndUploadImage()); Text(this.submitting ? (this.editing ? '保存中…' : '发布中…') : (this.editing ? '保存' : '发布')).id('topicSubmit').fontSize(16).fontColor(this.submitting ? '#A0A5AB' : this.themeColor).onClick(async () => {
         if (this.submitting) return;
         if (!this.editing && this.nodeCode.length === 0) { this.status = '请先选择节点'; return; }
         if (this.title.trim().length < 3 || this.content.trim().length < 3) { this.status = '标题和内容至少需要 3 个字符'; return; }

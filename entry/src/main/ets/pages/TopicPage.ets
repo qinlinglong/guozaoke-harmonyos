@@ -321,10 +321,9 @@ struct TopicPage {
       if (raw.length > 0 && value.length === 0) this.notify('回复仅支持文本，表情已过滤');
       return;
     }
-    if (!GuozaokeService.isLoggedIn()) {
-      this.notify('请先登录');
-      return;
-    }
+    // Do not gate submission on cookie-name heuristics. The redesigned site
+    // may keep the authenticated WebView session under a different cookie
+    // name; the POST/XSRF response is the authoritative login check.
     this.sending = true;
     this.status = '发送中…';
     const editing = this.editingReplyId.length > 0;
@@ -388,6 +387,10 @@ struct TopicPage {
     this.replyTarget = target;
     if (target.length > 0) this.comment = `@${target} `;
     this.composerOpen = true;
+    this.focusComposer();
+  }
+
+  private focusComposer(): void {
     setTimeout(() => {
       try { this.getUIContext().getFocusController().requestFocus('commentInput'); } catch (_) {}
     }, 120);
@@ -409,6 +412,9 @@ struct TopicPage {
     this.replyTarget = '';
     this.comment = normalizeReplyContent(htmlText(item.content, false)).trim();
     this.composerOpen = true;
+    // Focus immediately so the editor is usable while the canonical form is
+    // loading. The second focus below covers the async draft replacement.
+    this.focusComposer();
     // Read the canonical edit form so links, mentions and line breaks are
     // echoed exactly as stored by the website, instead of reverse-parsing the
     // rendered comment markup.
@@ -416,9 +422,7 @@ struct TopicPage {
     if (this.editingReplyId === item.id && draft.length > 0) {
       this.comment = normalizeReplyContent(draft).trim();
     }
-    setTimeout(() => {
-      try { this.getUIContext().getFocusController().requestFocus('commentInput'); } catch (_) {}
-    }, 120);
+    this.focusComposer();
   }
 
   private async chooseCommentImage(): Promise<void> {
@@ -680,7 +684,7 @@ struct TopicPage {
                 if (event.type === KeyType.Up) this.dismissComposer();
                 return true;
               })
-            Button(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论')).fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
+            Button(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论')).id('commentSubmit').fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
               .padding(0).borderRadius(20).backgroundColor(this.themeColor)
               // Keep the hit target active while the native TextArea is
               // updating its bound value; sendComment performs final
@@ -688,7 +692,6 @@ struct TopicPage {
               .opacity(this.sending ? 0.55 : 1).enabled(!this.sending).onClick(() => this.sendComment())
           }.width('100%').height(72).alignItems(VerticalAlign.Center)
         }.width('100%').height(110).flexShrink(0).backgroundColor(Color.White)
-          .hitTestBehavior(HitTestMode.Block)
           .border({ width: { top: 1 }, color: '#E6E8EB' })
       }
       if (this.status.length > 0) {

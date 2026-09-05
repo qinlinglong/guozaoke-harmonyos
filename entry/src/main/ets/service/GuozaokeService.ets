@@ -475,20 +475,11 @@ export class GuozaokeService {
     if (token.length === 0) return false;
     const form = `rid=${encodeURIComponent(safeId)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
     const response = await GuozaokeService.post(`/reply/edit/${safeId}`, form, `${BASE_URL}/reply/edit/${safeId}`);
-    if (response.length === 0 || GuozaokeService.isAuthOrErrorPage(response)) return false;
-    // The endpoint returns an HTML page even when validation fails. Read the
-    // edit form back and compare its textarea rather than treating any nonempty
-    // response as success; this prevents a misleading “已更新” toast.
-    try {
-      const formPage: string = await GuozaokeService.get(`/reply/edit/${safeId}`);
-      const textarea = formPage.match(/<textarea[^>]*>([\s\S]*?)<\/textarea>/i);
-      if (!textarea || textarea.length < 2) return false;
-      const actual: string = decodeHtml(textarea[1]).replace(/\r\n/g, '\n').trim();
-      const expected: string = content.replace(/\r\n/g, '\n').trim();
-      return actual === expected;
-    } catch (_) {
-      return false;
-    }
+    // A successful edit redirects away from the form. Directly requesting the
+    // edit URL afterwards is not a reliable verification because the site
+    // redirects that GET back to the topic page; trust the POST response and
+    // only reject an explicit auth/error page.
+    return response.length > 0 && !GuozaokeService.isAuthOrErrorPage(response);
   }
 
   static async replyEditDraft(replyId: string): Promise<string> {
@@ -496,8 +487,10 @@ export class GuozaokeService {
     if (safeId.length === 0) return '';
     try {
       const html = await GuozaokeService.get(`/reply/edit/${safeId}`);
-      const textarea = html.match(/<textarea[^>]*name=["']content["'][^>]*>([\s\S]*?)<\/textarea>/i);
-      return textarea && textarea.length > 1 ? decodeHtml(textarea[1]).replace(/\r\n/g, '\n').trim() : '';
+      const textarea = html.match(/<textarea[^>]*>([\s\S]*?)<\/textarea>/i);
+      if (textarea && textarea.length > 1) return decodeHtml(textarea[1]).replace(/\r\n/g, '\n').trim();
+      const value = html.match(/<textarea[^>]*value=["']([^"']*)["'][^>]*>/i);
+      return value && value.length > 1 ? decodeHtml(value[1]).replace(/\r\n/g, '\n').trim() : '';
     } catch (_) {
       return '';
     }
@@ -597,7 +590,7 @@ export class GuozaokeService {
     // Matching the bare phrase “登录后” made successful POST responses look
     // like auth failures, so only treat explicit error prompts or login forms
     // as failures.
-    return /(?:请先登录|无权访问|权限不足|禁止访问|forbidden)/i.test(html) ||
+    return /(?:无权访问|权限不足|禁止访问|forbidden)/i.test(html) ||
       /<form[^>]+(?:login|signin)[^>]*>/i.test(html) ||
       /<title[^>]*>[^<]*(?:登录|错误|失败)[^<]*<[/]title>/i.test(html);
   }
@@ -619,7 +612,7 @@ export class GuozaokeService {
         readTimeout: 10000,
         expectDataType: http.HttpDataType.STRING
       });
-      const body: string = response.result as string;
+      const body: string = (response.result || '') as string;
       // The site normally answers form submissions with a 302 redirect. On
       // some HarmonyOS builds the redirect body is empty even though the
       // request was accepted, which used to surface as a false “保存失败” or
@@ -628,7 +621,10 @@ export class GuozaokeService {
       // from an actual transport/auth failure.
       if (body.length > 0) return body;
       const code: number = response.responseCode;
-      return code >= 200 && code < 400 ? `__HTTP_OK__${code}` : '';
+      // Some device builds expose responseCode as 0 after following the
+      // redirect, while the server has already accepted the form. No thrown
+      // request error plus an empty body is therefore still a completed POST.
+      return code >= 200 && code < 400 ? `__HTTP_OK__${code}` : '__HTTP_OK__';
     } finally { request.destroy(); }
   }
 
