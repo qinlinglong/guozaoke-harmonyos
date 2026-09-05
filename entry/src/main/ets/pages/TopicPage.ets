@@ -203,6 +203,7 @@ struct TopicPage {
   @StorageLink('imageBedApiKey') imageBedApiKey: string = '';
   @State uploadingImage: boolean = false;
   @State editingReplyId: string = '';
+  private loadedOnce: boolean = false;
 
   aboutToAppear(): void {
     try {
@@ -211,6 +212,13 @@ struct TopicPage {
       this.title = params && params.title ? params.title : '主题详情';
     } catch (_) {}
     this.loadBody();
+  }
+
+  // Returning from the native topic editor does not recreate this page, so
+  // aboutToAppear is not called again. Refresh when the page becomes visible
+  // to show the saved title/content immediately.
+  onPageShow(): void {
+    if (this.loadedOnce) this.loadBody();
   }
 
   pageTransition() {
@@ -259,6 +267,7 @@ struct TopicPage {
     }
     catch (_) { this.body = '加载失败，请稍后重试'; }
     this.loading = false;
+    this.loadedOnce = true;
   }
 
   private notify(message: string, duration: number = 2200): void {

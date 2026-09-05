@@ -387,7 +387,7 @@ export class GuozaokeService {
   }
 
   static async topicDetail(id: string): Promise<TopicDetailData> {
-    const html: string = await GuozaokeService.get(`/t/${id}`);
+    const html: string = await GuozaokeService.get(`/t/${id}?_native_ts=${Date.now()}`);
     const detail: TopicDetailData = new TopicDetailData();
     const headerMatch = html.match(/<div[^>]*class=["'][^"']*topic-detail[^"']*["'][\s\S]*?<div[^>]*class=["'][^"']*ui-header[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*ui-content)/i);
     const header: string = headerMatch ? headerMatch[0] : html;
