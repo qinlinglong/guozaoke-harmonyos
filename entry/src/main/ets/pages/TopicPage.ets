@@ -542,6 +542,7 @@ struct TopicPage {
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.voteTopic())
             Row() {
               Image($r('app.media.ic_share')).width(19).height(19).fillColor(this.themeColor)
+              Text('分享').fontSize(13).fontColor(this.themeColor).margin({ left: 5 })
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.copyShareLink())
             if (this.canEdit) {
               Row() {
