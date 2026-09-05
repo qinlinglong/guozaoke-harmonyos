@@ -192,6 +192,7 @@ struct TopicPage {
   @State voteCount: number = 0;
   @State topicVoteUrl: string = '';
   @State topicVoted: boolean = false;
+  @State topicVoteBusy: boolean = false;
   @State sending: boolean = false;
   @State favoriteBusy: boolean = false;
   @State images: Array<string> = [];
@@ -303,16 +304,28 @@ struct TopicPage {
   }
 
   private async voteTopic(): Promise<void> {
+    // H5 debounces the vote request. Without a native in-flight guard, rapid
+    // taps send multiple GETs and the resulting success/already-voted replies
+    // race, making the first, second and third tap appear inconsistent.
+    if (this.topicVoteBusy) {
+      this.notify('正在提交，请稍候');
+      return;
+    }
     if (this.topicVoted || this.topicVoteUrl.length === 0) {
       this.notify(this.topicVoted ? '已经点过赞了' : '当前主题暂不支持点赞');
       return;
     }
-    const ok = await GuozaokeService.vote(this.topicVoteUrl);
-    if (ok) {
-      this.topicVoted = true;
-      this.voteCount += 1;
-      this.notify('点赞成功');
-    } else this.notify('点赞失败，请稍后重试');
+    this.topicVoteBusy = true;
+    try {
+      const ok = await GuozaokeService.vote(this.topicVoteUrl);
+      if (ok) {
+        this.topicVoted = true;
+        this.voteCount += 1;
+        this.notify('点赞成功');
+      } else this.notify('点赞失败，请稍后重试');
+    } finally {
+      this.topicVoteBusy = false;
+    }
   }
 
   private openEditor(): void {
@@ -578,7 +591,7 @@ struct TopicPage {
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.toggleFavorite())
             Row() {
               Image($r('app.media.ic_like')).width(19).height(19).fillColor(this.topicVoted ? '#F59E0B' : '#7B8794').margin({ right: 5 })
-              Text(this.topicVoted ? '已赞' : '赞').fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : '#7B8794')
+              Text(this.topicVoteBusy ? '处理中…' : (this.topicVoted ? '已赞' : '赞')).fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : '#7B8794')
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.voteTopic())
             Row() {
               Image($r('app.media.ic_share')).width(19).height(19).fillColor('#7B8794')
