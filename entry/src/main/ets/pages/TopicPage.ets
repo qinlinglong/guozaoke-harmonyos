@@ -329,7 +329,7 @@ struct TopicPage {
     const editing = this.editingReplyId.length > 0;
     const content = !editing && this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
     try {
-      const ok = editing ? await GuozaokeService.editComment(this.editingReplyId, content) : await GuozaokeService.comment(this.topicId, content);
+      const ok = editing ? await GuozaokeService.editComment(this.editingReplyId, content, this.topicId) : await GuozaokeService.comment(this.topicId, content);
       if (ok) {
         this.dismissComposer(true);
         this.notify(editing ? '回复已更新' : '评论成功');
@@ -564,25 +564,25 @@ struct TopicPage {
           // row, which mirrors the compact action area in the H5 client.
           Row() {
             Row() {
-              Image($r('app.media.ic_reply')).width(19).height(19).fillColor(this.themeColor).margin({ right: 5 })
-              Text('回复').fontSize(13).fontColor(this.themeColor)
+              Image($r('app.media.ic_reply')).width(19).height(19).fillColor('#7B8794').margin({ right: 5 })
+              Text('回复').fontSize(13).fontColor('#7B8794')
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.openComposer())
             Row() {
               Image($r('app.media.ic_favorite')).width(19).height(19).fillColor(this.favorite ? this.themeColor : '#7B8794').margin({ right: 5 })
               Text(this.favoriteBusy ? '处理中…' : (this.favorite ? '已收藏' : '收藏')).fontSize(13).fontColor(this.favorite ? this.themeColor : '#7B8794')
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.toggleFavorite())
             Row() {
-              Image($r('app.media.ic_like')).width(19).height(19).fillColor(this.topicVoted ? '#F59E0B' : this.themeColor).margin({ right: 5 })
-              Text(this.topicVoted ? '已赞' : '赞').fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : this.themeColor)
+              Image($r('app.media.ic_like')).width(19).height(19).fillColor(this.topicVoted ? '#F59E0B' : '#7B8794').margin({ right: 5 })
+              Text(this.topicVoted ? '已赞' : '赞').fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : '#7B8794')
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.voteTopic())
             Row() {
-              Image($r('app.media.ic_share')).width(19).height(19).fillColor(this.themeColor)
-              Text('分享').fontSize(13).fontColor(this.themeColor).margin({ left: 5 })
+              Image($r('app.media.ic_share')).width(19).height(19).fillColor('#7B8794')
+              Text('分享').fontSize(13).fontColor('#7B8794').margin({ left: 5 })
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.copyShareLink())
             if (this.canEdit) {
               Row() {
-                Image($r('app.media.ic_edit')).width(19).height(19).fillColor(this.themeColor)
-                Text('编辑').fontSize(13).fontColor(this.themeColor).margin({ left: 5 })
+                Image($r('app.media.ic_edit')).width(19).height(19).fillColor('#7B8794')
+                Text('编辑').fontSize(13).fontColor('#7B8794').margin({ left: 5 })
               }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.openEditor())
             }
           }.width('100%').height(48).padding({ left: 2, right: 2 }).backgroundColor(Color.White).borderRadius(8)

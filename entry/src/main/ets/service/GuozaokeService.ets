@@ -409,11 +409,14 @@ export class GuozaokeService {
   static async topicCommentPage(id: string, page: number = 1): Promise<CommentListResult> {
     // The Android client requests the first paginated detail page for comments;
     // the redesigned site omits the reply list from the bare /t/:id response.
-    let html: string = await GuozaokeService.get(`/t/${id}?p=${page}`);
+    // Bypass CDN/browser cache after mutations so edit verification and the
+    // refreshed native detail view observe the server's latest reply body.
+    const cacheBust = page === 1 ? `&_native_ts=${Date.now()}` : '';
+    let html: string = await GuozaokeService.get(`/t/${id}?p=${page}${cacheBust}`);
     // Some CDN edges serve the anti-bot shell for the paginated URL only.
     // Retry the canonical detail response before presenting a false empty list.
     if (page === 1 && !/(reply-item|topic-reply|J_replyVote|comment-content|reply-content)/i.test(html)) {
-      html = await GuozaokeService.get(`/t/${id}`);
+      html = await GuozaokeService.get(`/t/${id}?_native_ts=${Date.now()}`);
     }
     const result: Array<CommentItem> = [];
     const blocks: Array<string> = html.match(/<div[^>]*class=["'][^"']*reply-item[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*reply-item|<div[^>]*class=["'][^"']*topic-reply-create|<\/body>)/gi) ?? [];
@@ -508,7 +511,7 @@ export class GuozaokeService {
     return response.length > 0 && !GuozaokeService.isAuthOrErrorPage(response);
   }
 
-  static async editComment(replyId: string, content: string): Promise<boolean> {
+  static async editComment(replyId: string, content: string, topicId: string = ''): Promise<boolean> {
     const safeId = replyId.replace(/[^0-9]/g, '');
     if (safeId.length === 0) return false;
     const token = await GuozaokeService.xsrfFor(`/reply/edit/${safeId}`);
@@ -519,7 +522,21 @@ export class GuozaokeService {
     // edit URL afterwards is not a reliable verification because the site
     // redirects that GET back to the topic page; trust the POST response and
     // only reject an explicit auth/error page.
-    return response.length > 0 && !GuozaokeService.isAuthOrErrorPage(response);
+    if (response.length === 0 || GuozaokeService.isAuthOrErrorPage(response)) return false;
+    // A completed POST is not enough on this endpoint: the site may return a
+    // normal redirect page even when validation rejected the form. Re-read the
+    // topic and confirm the exact reply ID now contains the submitted text.
+    if (topicId.length === 0) return true;
+    try {
+      const result = await GuozaokeService.topicCommentPage(topicId, 1);
+      const edited = result.items.find((item: CommentItem) => item.id === safeId);
+      if (!edited) return false;
+      const expected = decodeHtml(content).replace(/\s+/g, ' ').trim();
+      const actual = decodeHtml(edited.content).replace(/\s+/g, ' ').trim();
+      return actual === expected;
+    } catch (_) {
+      return false;
+    }
   }
 
   static async replyEditDraft(replyId: string): Promise<string> {
@@ -611,14 +628,16 @@ export class GuozaokeService {
 
   static async xsrfFor(path: string): Promise<string> {
     const cookieToken = GuozaokeService.xsrf();
-    if (cookieToken.length > 0) return cookieToken;
     try {
       const html = await GuozaokeService.get(path);
       const field = html.match(/<input[^>]*name=["']_xsrf["'][^>]*value=["']([^"']+)["'][^>]*>/i) ||
         html.match(/<input[^>]*value=["']([^"']+)["'][^>]*name=["']_xsrf["'][^>]*>/i);
-      return field && field.length > 1 ? field[1] : '';
+      // The redesigned form can rotate its token independently of the
+      // cookie. Prefer the token rendered in this exact form, then fall back
+      // to the persisted cookie for pages that do not expose a hidden field.
+      return field && field.length > 1 ? field[1] : cookieToken;
     } catch (_) {
-      return '';
+      return cookieToken;
     }
   }
 
