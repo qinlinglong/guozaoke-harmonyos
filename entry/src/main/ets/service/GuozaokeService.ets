@@ -181,6 +181,28 @@ export class GuozaokeService {
     return (await GuozaokeService.topicPage(tab, page)).topics;
   }
 
+  /**
+   * 今日热议 is rendered as a small sidebar on the H5 home page rather than
+   * as a separate tab. Keep the native entry backed by that same live markup,
+   * so the list follows the website without hard-coded topic IDs.
+   */
+  static async hotTopics(): Promise<Array<Topic>> {
+    const html: string = await GuozaokeService.get('/');
+    const links: Array<string> = html.match(/<span[^>]*class=["'][^"']*hot_topic_title[^"']*["'][^>]*>[\s\S]*?<a[^>]*href=["']\/t\/(\d+)(?:#[^"']*)?["'][^>]*>[\s\S]*?<\/a>[\s\S]*?<\/span>/gi) ?? [];
+    const result: Array<Topic> = [];
+    links.forEach((link: string) => {
+      const id = firstMatch(link, /href=["']\/t\/(\d+)/i);
+      const title = firstMatch(link, /<a[^>]*>([\s\S]*?)<\/a>/i);
+      if (id.length === 0 || title.length === 0 || result.some((item: Topic) => item.id === id)) return;
+      const item: Topic = new Topic();
+      item.id = id;
+      item.title = title;
+      item.replies = '热议';
+      result.push(item);
+    });
+    return result;
+  }
+
   static async searchTopics(keyword: string, page: number = 1): Promise<TopicListResult> {
     const value = keyword.trim();
     const empty = new TopicListResult();
@@ -372,7 +394,15 @@ export class GuozaokeService {
       const avatarTag = block.match(/<img[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
       item.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
       const vote = block.match(/<a[^>]*class=["'][^"']*J_replyVote[^"']*["'][^>]*href=["']([^"']*)["'][^>]*data-count=["'](\d+)["']/i);
-      if (vote) { item.voteUrl = vote[1]; item.voteCount = Number(vote[2]); }
+      if (vote) {
+        item.voteUrl = vote[1];
+        item.voteCount = Number(vote[2]);
+        const replyId = vote[1].match(/[?&]reply_id=(\d+)/i);
+        if (replyId) item.id = replyId[1];
+      }
+      const editLink = block.match(/<(?:a|button)[^>]*(?:href|data-href)=["']([^"']*\/reply\/edit\/\d+[^"']*)["'][^>]*>[\s\S]*?编辑回复[\s\S]*?<\/(?:a|button)>/i);
+      item.editUrl = editLink && editLink.length > 1 ? editLink[1] : '';
+      item.editable = item.editUrl.length > 0;
       // Preserve block markup until the native view formats it. Otherwise
       // <br>, <p> and <li> boundaries disappear and replies run together.
       item.content = firstRawMatch(block, /<(?:span|div)[^>]*class=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/(?:span|div)>/i);
@@ -430,6 +460,28 @@ export class GuozaokeService {
     const token = GuozaokeService.xsrf();
     const response = await GuozaokeService.post(`/t/${id}`, `tid=${encodeURIComponent(id)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`);
     return response.length > 0;
+  }
+
+  static async editComment(replyId: string, content: string): Promise<boolean> {
+    const safeId = replyId.replace(/[^0-9]/g, '');
+    if (safeId.length === 0) return false;
+    const token = GuozaokeService.xsrf();
+    const form = `rid=${encodeURIComponent(safeId)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
+    const response = await GuozaokeService.post(`/reply/edit/${safeId}`, form);
+    if (response.length === 0 || /(找不到|不存在|错误|失败|无权|权限|请登录|登录|forbidden|login)/i.test(response)) return false;
+    // The endpoint returns an HTML page even when validation fails. Read the
+    // edit form back and compare its textarea rather than treating any nonempty
+    // response as success; this prevents a misleading “已更新” toast.
+    try {
+      const formPage: string = await GuozaokeService.get(`/reply/edit/${safeId}`);
+      const textarea = formPage.match(/<textarea[^>]*>([\s\S]*?)<\/textarea>/i);
+      if (!textarea || textarea.length < 2) return false;
+      const actual: string = decodeHtml(textarea[1]).replace(/\r\n/g, '\n').trim();
+      const expected: string = content.replace(/\r\n/g, '\n').trim();
+      return actual === expected;
+    } catch (_) {
+      return false;
+    }
   }
 
   static async newTopic(nodeCode: string, title: string, content: string): Promise<boolean> {

@@ -6,6 +6,7 @@
     "pages/TopicListPage",
     "pages/ProfilePage",
     "pages/NodesPage",
+    "pages/HotTopicsPage",
     "pages/SearchPage",
     "pages/NotificationsPage",
     "pages/SettingsPage",

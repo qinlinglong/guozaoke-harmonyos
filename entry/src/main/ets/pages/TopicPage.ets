@@ -8,13 +8,75 @@ import { TopicDetailData } from '../model/TopicDetailData';
 import { ContentPart } from '../model/ContentPart';
 import { CommentListResult } from '../model/CommentListResult';
 
+function emojiAlias(name: string): string {
+  switch (name.toLowerCase()) {
+    case 'joy': return '😂'; case 'laugh': return '😆'; case 'smile': return '😄'; case 'grin': return '😁';
+    case 'blush': return '😊'; case 'wink': return '😉'; case 'heart': return '❤️'; case 'love': return '😍';
+    case 'kiss': return '😘'; case 'cry': return '😢'; case 'sob': return '😭'; case 'angry': return '😠';
+    case 'scream': return '😱'; case 'confused': return '😕'; case 'thinking': return '🤔'; case 'sweat': return '😓';
+    case 'neutral': return '😐'; case 'sleep': return '😴'; case 'cool': return '😎'; case 'thumbsup': return '👍';
+    case 'thumbsdown': return '👎'; case 'pray': return '🙏'; case 'clap': return '👏'; case 'fire': return '🔥';
+    case 'star': return '⭐'; case 'tada': return '🎉'; case 'poop': return '💩'; default: return '';
+  }
+}
+
+function emojiCode(value: string): string {
+  switch (value) {
+    case '😂': return 'joy'; case '😆': return 'laugh'; case '😄': return 'smile'; case '😁': return 'grin';
+    case '😊': return 'blush'; case '😉': return 'wink'; case '❤️': case '❤': return 'heart'; case '😍': return 'love';
+    case '😘': return 'kiss'; case '😢': return 'cry'; case '😭': return 'sob'; case '😠': return 'angry';
+    case '😱': return 'scream'; case '😕': return 'confused'; case '🤔': return 'thinking'; case '😓': return 'sweat';
+    case '😐': return 'neutral'; case '😴': return 'sleep'; case '😎': return 'cool'; case '👍': return 'thumbsup';
+    case '👎': return 'thumbsdown'; case '🙏': return 'pray'; case '👏': return 'clap'; case '🔥': return 'fire';
+    case '⭐': return 'star'; case '🎉': return 'tada'; case '💩': return 'poop'; default: return '';
+  }
+}
+
+function normalizeReplyContent(value: string): string {
+  // Guozaoke's H5 editor submits emoji as :name: tokens. Keep that wire
+  // format even when the user types/picks native Unicode emoji in HarmonyOS.
+  return value.replace(/😂|😆|😄|😁|😊|😉|❤️|❤|😍|😘|😢|😭|😠|😱|😕|🤔|😓|😐|😴|😎|👍|👎|🙏|👏|🔥|⭐|🎉|💩/g, (match: string) => {
+    const code = emojiCode(match);
+    return code.length > 0 ? `:${code}:` : match;
+  });
+}
+
+function decodeEntity(value: string): string {
+  return value.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>').replace(/&#39;|&#x27;/gi, "'").replace(/&quot;/gi, '"')
+    .replace(/&#x([0-9a-f]+);/gi, (_match: string, code: string) => {
+      const point = Number.parseInt(code, 16);
+      if (point <= 0xFFFF) return String.fromCharCode(point);
+      const adjusted = point - 0x10000;
+      return String.fromCharCode(0xD800 + (adjusted >> 10), 0xDC00 + (adjusted & 0x3FF));
+    })
+    .replace(/&#(\d+);/g, (_match: string, code: string) => {
+      const point = Number(code);
+      if (point <= 0xFFFF) return String.fromCharCode(point);
+      const adjusted = point - 0x10000;
+      return String.fromCharCode(0xD800 + (adjusted >> 10), 0xDC00 + (adjusted & 0x3FF));
+    });
+}
+
 function htmlText(value: string, showImagePlaceholder: boolean = true): string {
   return value.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<br\s*\/?\s*>/gi, '\n').replace(/<\/(p|div|li|h[1-6]|blockquote|section)>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '• ').replace(/<img[^>]*>/gi, showImagePlaceholder ? '[图片] ' : '')
+    .replace(/<li[^>]*>/gi, '• ').replace(/<img\b([^>]*)>/gi, (_tag: string, attrs: string) => {
+      const alt = attrs.match(/\balt\s*=\s*["']([^"']*)["']/i);
+      if (alt && alt[1].length > 0) {
+        const decodedAlt = decodeEntity(alt[1]);
+        const alias = decodedAlt.match(/^:([A-Za-z0-9_+-]+):$/);
+        return alias ? (emojiAlias(alias[1]) || decodedAlt) : decodedAlt;
+      }
+      const src = attrs.match(/\bsrc\s*=\s*["']([^"']*)["']/i);
+      const emoji = src ? src[1].match(/\/static\/emoji\/([^/?#\.]+)\.png/i) : null;
+      if (emoji) return emojiAlias(emoji[1]) || `:${emoji[1]}:`;
+      return showImagePlaceholder ? '[图片] ' : '';
+    })
     .replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;|&#x27;/gi, "'").replace(/&quot;/g, '"')
-    .replace(/&#(\d+);/g, (_: string, code: string) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_: string, code: string) => decodeEntity(`&#x${code};`))
+    .replace(/&#(\d+);/g, (_: string, code: string) => decodeEntity(`&#${code};`))
     .replace(/[ \t]+/g, ' ').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n')
     .replace(/(^|\n)(加入收藏|编辑主题|新浪微博|分享到微信|❤️?赞|\d+ 次点击|\d+ 人赞|\d+ 人收藏)(?=\n|$)/g, '$1').trim();
 }
@@ -81,6 +143,7 @@ struct TopicPage {
   @State composerOpen: boolean = false;
   @State loading: boolean = true;
   @State author: string = '';
+  @State selfName: string = '';
   @State avatar: string = '';
   @State nodeTitle: string = '';
   @State nodeCode: string = '';
@@ -101,6 +164,7 @@ struct TopicPage {
   @StorageLink('commentsOrderDesc') commentsOrderDesc: boolean = false;
   @StorageLink('imageBedApiKey') imageBedApiKey: string = '';
   @State uploadingImage: boolean = false;
+  @State editingReplyId: string = '';
 
   aboutToAppear(): void {
     try {
@@ -142,9 +206,10 @@ struct TopicPage {
       this.voteCount = topic.voteCount;
       this.topicVoteUrl = topic.voteUrl;
       this.topicVoted = topic.voted;
-      const selfName = await GuozaokeService.selfUsername();
-      this.canEdit = this.author.length > 0 && selfName.length > 0 && this.author === selfName;
+      this.selfName = await GuozaokeService.selfUsername();
+      this.canEdit = this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName;
       const commentResult: CommentListResult = detail[1];
+      this.markEditable(commentResult.items);
       this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
       this.commentPage = 1;
       this.commentsHasMore = commentResult.hasMore;
@@ -159,6 +224,13 @@ struct TopicPage {
     setTimeout(() => {
       if (this.status === message) this.status = '';
     }, duration);
+  }
+
+  private markEditable(items: Array<CommentItem>): Array<CommentItem> {
+    items.forEach((item: CommentItem) => {
+      item.editable = item.editable || (item.author.length > 0 && item.author === this.selfName && item.id.length > 0);
+    });
+    return items;
   }
 
   private async toggleFavorite(): Promise<void> {
@@ -204,7 +276,7 @@ struct TopicPage {
   }
 
   private async sendComment(): Promise<void> {
-    const value = this.comment.trim();
+    const value = normalizeReplyContent(this.comment.trim());
     if (this.sending || value.length === 0 || this.topicId.length === 0) return;
     if (!GuozaokeService.isLoggedIn()) {
       this.notify('请先登录');
@@ -212,15 +284,18 @@ struct TopicPage {
     }
     this.sending = true;
     this.status = '发送中…';
-    const content = this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
+    const editing = this.editingReplyId.length > 0;
+    const content = !editing && this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
     try {
-      if (await GuozaokeService.comment(this.topicId, content)) {
+      const ok = editing ? await GuozaokeService.editComment(this.editingReplyId, content) : await GuozaokeService.comment(this.topicId, content);
+      if (ok) {
         this.dismissComposer(true);
         const commentResult = await GuozaokeService.topicCommentPage(this.topicId, 1);
+        this.markEditable(commentResult.items);
         this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
         this.commentPage = 1;
         this.commentsHasMore = commentResult.hasMore;
-        this.notify('评论成功');
+        this.notify(editing ? '回复已更新' : '评论成功');
       } else {
         this.notify('评论失败，请稍后重试');
       }
@@ -262,6 +337,7 @@ struct TopicPage {
   }
 
   private openComposer(target: string = ''): void {
+    this.editingReplyId = '';
     this.replyTarget = target;
     if (target.length > 0) this.comment = `@${target} `;
     this.composerOpen = true;
@@ -276,7 +352,19 @@ struct TopicPage {
     if (clearDraft) {
       this.replyTarget = '';
       this.comment = '';
+      this.editingReplyId = '';
     }
+  }
+
+  private openReplyEditor(item: CommentItem): void {
+    if (!item.editable || item.id.length === 0) return;
+    this.editingReplyId = item.id;
+    this.replyTarget = '';
+    this.comment = htmlText(item.content, false);
+    this.composerOpen = true;
+    setTimeout(() => {
+      try { this.getUIContext().getFocusController().requestFocus('commentInput'); } catch (_) {}
+    }, 120);
   }
 
   private async chooseCommentImage(): Promise<void> {
@@ -310,6 +398,7 @@ struct TopicPage {
       const nextPage: number = this.commentPage + 1;
       const result: CommentListResult = await GuozaokeService.topicCommentPage(this.topicId, nextPage);
       const knownIds: Set<string> = new Set(this.comments.map((item: CommentItem) => `${item.id}-${item.floor}`));
+      this.markEditable(result.items);
       const nextItems: Array<CommentItem> = result.items.filter((item: CommentItem) => !knownIds.has(`${item.id}-${item.floor}`));
       this.comments = this.comments.concat(this.commentsOrderDesc ? nextItems.slice().reverse() : nextItems);
       this.commentPage = nextPage;
@@ -415,13 +504,13 @@ struct TopicPage {
           // Secondary metadata stays on its own line so the actions remain
           // easy to hit and the counts are visually subordinate.
           Row() {
-            if (this.canEdit) {
-              Text('编辑主题').fontSize(12).fontColor(this.themeColor).onClick(() => this.openEditor())
-            }
-            Text(`${this.viewCount} 次点击`).fontSize(12).fontColor('#8A9199').margin({ left: this.canEdit ? 16 : 0 })
+            Text(`${this.viewCount} 次点击`).fontSize(12).fontColor('#8A9199')
             Blank()
             Text(`${this.favoriteCount} 人收藏`).fontSize(12).fontColor('#8A9199')
             Text(`${this.voteCount} 人赞`).fontSize(12).fontColor(this.topicVoted ? '#F59E0B' : '#8A9199').margin({ left: 12 })
+            if (this.canEdit) {
+              Text('编辑主题').fontSize(12).fontColor(this.themeColor).margin({ left: 14 }).onClick(() => this.openEditor())
+            }
           }.width('100%').padding({ left: 4, right: 4, top: 8, bottom: 4 })
           Row() {
             Text(`评论 ${this.comments.length}`).fontSize(17).fontWeight(FontWeight.Medium).fontColor('#30343B')
@@ -460,6 +549,10 @@ struct TopicPage {
                       this.status = voted ? '点赞成功' : '点赞失败';
                     })
                   Text(`${item.voteCount}`).fontSize(11).fontColor('#A0A5AB').margin({ right: 2 })
+                  if (item.editable) {
+                    Text('编辑').fontSize(12).fontColor(this.themeColor).padding({ left: 10, right: 6, top: 4, bottom: 4 })
+                      .onClick(() => this.openReplyEditor(item))
+                  }
                 }.width('100%').margin({ top: 4 })
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
             }.width('100%').padding(14).backgroundColor(Color.White).borderRadius(8).margin({ bottom: 8 })
@@ -485,7 +578,13 @@ struct TopicPage {
             .onClick(() => this.dismissComposer(true))
           Text(this.uploadingImage ? '上传中…' : '图片').fontSize(12).fontColor(this.uploadingImage ? '#A0A5AB' : this.themeColor)
             .width(44).textAlign(TextAlign.Center).onClick(() => this.chooseCommentImage())
-          TextArea({ placeholder: this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容', text: this.comment })
+          Text('😊').fontSize(18).width(28).textAlign(TextAlign.Center)
+            .hitTestBehavior(HitTestMode.Block).onClick(() => this.comment = `${this.comment}😊`)
+          Text('👍').fontSize(18).width(28).textAlign(TextAlign.Center)
+            .hitTestBehavior(HitTestMode.Block).onClick(() => this.comment = `${this.comment}👍`)
+          Text('😂').fontSize(18).width(28).textAlign(TextAlign.Center)
+            .hitTestBehavior(HitTestMode.Block).onClick(() => this.comment = `${this.comment}😂`)
+          TextArea({ placeholder: this.editingReplyId.length > 0 ? '编辑回复…' : (this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容'), text: this.comment })
             .id('commentInput')
             .focusOnTouch(true)
             .fontSize(15)
@@ -508,10 +607,11 @@ struct TopicPage {
               if (event.type === KeyType.Up) this.dismissComposer();
               return true;
             })
-          Button(this.sending ? '发送中…' : '评论').fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
+          Button(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论')).fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
             .padding(0).borderRadius(20).backgroundColor(this.themeColor)
             .enabled(!this.sending && this.comment.trim().length > 0).onClick(() => this.sendComment())
         }.width('100%').height(72).flexShrink(0).alignItems(VerticalAlign.Center).backgroundColor(Color.White)
+          .hitTestBehavior(HitTestMode.Block)
           .border({ width: { top: 1 }, color: '#E6E8EB' })
       }
       if (this.status.length > 0) {

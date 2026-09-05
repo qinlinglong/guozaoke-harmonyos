@@ -5,6 +5,8 @@ export class CommentItem {
   floor: string = '';
   avatar: string = '';
   content: string = '';
+  editUrl: string = '';
+  editable: boolean = false;
   voteCount: number = 0;
   voteUrl: string = '';
   voted: boolean = false;

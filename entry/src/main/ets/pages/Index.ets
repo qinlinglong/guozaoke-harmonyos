@@ -214,6 +214,9 @@ struct Index {
           .onClick(() => this.drawerOpen = true)
         Text('过早客').fontSize(20).fontWeight(FontWeight.Medium).fontColor(Color.White).margin({ left: 22 })
         Blank()
+        Row() { Image($r('app.media.ic_hot')).width(24).height(24).objectFit(ImageFit.Contain) }
+          .width(44).height(56).justifyContent(FlexAlign.Center)
+          .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/HotTopicsPage' }), 80))
         Row() { Image($r('app.media.ic_nodes')).width(24).height(24).objectFit(ImageFit.Contain) }
           .width(44).height(56).justifyContent(FlexAlign.Center)
           .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/NodesPage' }), 80))
