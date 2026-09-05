@@ -198,6 +198,7 @@ struct TopicPage {
   @State topicVoteUrl: string = '';
   @State topicVoted: boolean = false;
   @State topicVoteBusy: boolean = false;
+  @State ownTopic: boolean = false;
   @State sending: boolean = false;
   @State favoriteBusy: boolean = false;
   @State images: Array<string> = [];
@@ -267,6 +268,7 @@ struct TopicPage {
       this.topicVoteUrl = topic.voteUrl;
       this.topicVoted = topic.voted || localVotedTopics.has(this.topicId);
       this.selfName = await GuozaokeService.selfUsername();
+      this.ownTopic = this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName;
       // H5 controls the edit window (including its time limit) by rendering
       // the edit link only while the reply/topic is editable. Mirror that
       // decision instead of allowing every historical own reply to be edited.
@@ -336,7 +338,7 @@ struct TopicPage {
     // H5 does not send a vote request for the author's own topic. It keeps
     // the control visible but responds with this specific message instead of
     // reporting a generic request failure.
-    if (this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName) {
+    if (this.ownTopic || (this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName)) {
       this.notify('不能喜欢自己的主题');
       return;
     }
@@ -627,7 +629,7 @@ struct TopicPage {
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.toggleFavorite())
             Row() {
               Image($r('app.media.ic_like')).width(19).height(19).fillColor(this.topicVoted ? '#F59E0B' : '#7B8794').margin({ right: 5 })
-              Text(this.topicVoteBusy ? '处理中…' : (this.topicVoted ? '已赞' : '赞')).fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : '#7B8794')
+              Text(this.ownTopic ? '不能喜欢自己的主题' : (this.topicVoteBusy ? '处理中…' : (this.topicVoted ? '已赞' : '赞'))).fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : '#7B8794')
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.voteTopic())
             Row() {
               Image($r('app.media.ic_share')).width(19).height(19).fillColor('#7B8794')
