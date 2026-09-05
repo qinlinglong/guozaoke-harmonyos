@@ -352,6 +352,8 @@ export class GuozaokeService {
     detail.editUrl = editLink && editLink.length > 1 ? editLink[1] : '';
     const visible = decodeHtml(html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, ''))
       .replace(/\s+/g, ' ');
+    const editedMatch = visible.match(/本帖最后于\s*([^<\n]{1,80}?)\s*编辑/i);
+    detail.editedTime = editedMatch && editedMatch.length > 1 ? editedMatch[1].trim() : '';
     detail.viewCount = numberMatch(visible, /(\d[\d,]*)\s*次点击/i);
     detail.favoriteCount = numberMatch(visible, /(\d[\d,]*)\s*人收藏/i);
     detail.voteCount = numberMatch(visible, /(\d[\d,]*)\s*人赞/i);
@@ -617,7 +619,16 @@ export class GuozaokeService {
         readTimeout: 10000,
         expectDataType: http.HttpDataType.STRING
       });
-      return response.result as string;
+      const body: string = response.result as string;
+      // The site normally answers form submissions with a 302 redirect. On
+      // some HarmonyOS builds the redirect body is empty even though the
+      // request was accepted, which used to surface as a false “保存失败” or
+      // make a comment tap look like it did nothing. Preserve a successful
+      // HTTP status as a small response marker so callers can distinguish it
+      // from an actual transport/auth failure.
+      if (body.length > 0) return body;
+      const code: number = response.responseCode;
+      return code >= 200 && code < 400 ? `__HTTP_OK__${code}` : '';
     } finally { request.destroy(); }
   }
 

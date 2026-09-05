@@ -5,6 +5,7 @@ export class TopicDetailData {
   nodeTitle: string = '';
   nodeCode: string = '';
   createdTime: string = '';
+  editedTime: string = '';
   images: Array<string> = [];
   editUrl: string = '';
   viewCount: number = 0;

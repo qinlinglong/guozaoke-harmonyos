@@ -185,6 +185,7 @@ struct TopicPage {
   @State nodeTitle: string = '';
   @State nodeCode: string = '';
   @State createdTime: string = '';
+  @State editedTime: string = '';
   @State canEdit: boolean = false;
   @State viewCount: number = 0;
   @State favoriteCount: number = 0;
@@ -236,6 +237,7 @@ struct TopicPage {
       this.nodeTitle = topic.nodeTitle;
       this.nodeCode = topic.nodeCode;
       this.createdTime = topic.createdTime;
+      this.editedTime = topic.editedTime;
       this.images = topic.images;
       this.imageHeights = topic.images.map(() => 220);
       this.viewCount = topic.viewCount;
@@ -331,12 +333,16 @@ struct TopicPage {
       const ok = editing ? await GuozaokeService.editComment(this.editingReplyId, content) : await GuozaokeService.comment(this.topicId, content);
       if (ok) {
         this.dismissComposer(true);
-        const commentResult = await GuozaokeService.topicCommentPage(this.topicId, 1);
-        this.markEditable(commentResult.items);
-        this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
-        this.commentPage = 1;
-        this.commentsHasMore = commentResult.hasMore;
         this.notify(editing ? '回复已更新' : '评论成功');
+        // A successful POST must not be reported as failed just because the
+        // follow-up comment refresh times out or is blocked by the CDN.
+        try {
+          const commentResult = await GuozaokeService.topicCommentPage(this.topicId, 1);
+          this.markEditable(commentResult.items);
+          this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
+          this.commentPage = 1;
+          this.commentsHasMore = commentResult.hasMore;
+        } catch (_) { }
       } else {
         this.notify('评论失败，请稍后重试');
       }
@@ -544,6 +550,10 @@ struct TopicPage {
               }, (url: string) => url)
             }
           }.width('100%').padding(18).backgroundColor(Color.White).borderRadius(10)
+          if (this.editedTime.length > 0) {
+            Text(`本帖最后于 ${this.editedTime} 编辑`).fontSize(12).fontColor('#8A9199')
+              .width('100%').textAlign(TextAlign.End).margin({ top: 6, right: 8 })
+          }
           // Keep the primary actions directly under the post body. They are
           // intentionally grouped together instead of spreading across the
           // row, which mirrors the compact action area in the H5 client.
@@ -672,7 +682,10 @@ struct TopicPage {
               })
             Button(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论')).fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
               .padding(0).borderRadius(20).backgroundColor(this.themeColor)
-              .enabled(!this.sending && this.comment.trim().length > 0).onClick(() => this.sendComment())
+              // Keep the hit target active while the native TextArea is
+              // updating its bound value; sendComment performs final
+              // empty/emoji-only validation and shows the visible toast.
+              .opacity(this.sending ? 0.55 : 1).enabled(!this.sending).onClick(() => this.sendComment())
           }.width('100%').height(72).alignItems(VerticalAlign.Center)
         }.width('100%').height(110).flexShrink(0).backgroundColor(Color.White)
           .hitTestBehavior(HitTestMode.Block)
