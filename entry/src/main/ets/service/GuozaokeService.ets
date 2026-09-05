@@ -591,7 +591,11 @@ export class GuozaokeService {
   }
 
   static isAuthOrErrorPage(html: string): boolean {
-    return /(?:请先登录|登录后|无权|权限不足|forbidden)/i.test(html) ||
+    // Normal topic pages contain instructional text such as “登录后回复”.
+    // Matching the bare phrase “登录后” made successful POST responses look
+    // like auth failures, so only treat explicit error prompts or login forms
+    // as failures.
+    return /(?:请先登录|无权访问|权限不足|禁止访问|forbidden)/i.test(html) ||
       /<form[^>]+(?:login|signin)[^>]*>/i.test(html) ||
       /<title[^>]*>[^<]*(?:登录|错误|失败)[^<]*<[/]title>/i.test(html);
   }

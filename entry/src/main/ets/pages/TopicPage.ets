@@ -150,6 +150,15 @@ function contentParts(value: string): Array<ContentPart> {
   return result;
 }
 
+function editableTopicText(value: string): string {
+  // The redesigned detail container also includes the site's edit footer.
+  // Never carry “本帖最后于……编辑” into the native editor and save it as
+  // part of the user's actual post content.
+  return htmlText(value, false)
+    .replace(/\s*本帖最后于[\s\S]*?编辑\s*$/i, '')
+    .trim();
+}
+
 @Entry
 @Component
 struct TopicPage {
@@ -293,7 +302,7 @@ struct TopicPage {
   }
 
   private openEditor(): void {
-    const text = htmlText(this.body, false);
+    const text = editableTopicText(this.body);
     setTimeout(() => router.pushUrl({
       url: 'pages/NewTopicPage',
       params: { edit: '1', editId: this.topicId, title: this.title, content: text, nodeCode: this.nodeCode, nodeTitle: this.nodeTitle }
