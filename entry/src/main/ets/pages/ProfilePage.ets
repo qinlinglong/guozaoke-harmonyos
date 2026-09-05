@@ -24,6 +24,7 @@ struct ProfilePage {
   @State actionBusy: boolean = false;
   @State status: string = '';
   private requestedSelf: boolean = true;
+  private hadCachedProfile: boolean = false;
 
   aboutToAppear(): void {
     try {
@@ -34,6 +35,7 @@ struct ProfilePage {
     this.self = this.requestedSelf;
     const cached: UserProfile | undefined = profileCache.get(this.requestedSelf ? '__self__' : this.username);
     if (cached) {
+      this.hadCachedProfile = true;
       this.applyProfile(cached);
       this.loading = false;
     }
@@ -60,7 +62,7 @@ struct ProfilePage {
       if (this.requestedSelf) profileCache.set('__self__', profile);
     } catch (_) {
       if (this.self) this.avatar = await GuozaokeService.selfAvatar();
-      if (this.avatar.length === 0 && this.username.length === 0) this.status = '资料加载失败，点击重试';
+      if (!this.hadCachedProfile) this.status = '资料加载失败，点击重试';
     }
     this.loading = false;
   }
