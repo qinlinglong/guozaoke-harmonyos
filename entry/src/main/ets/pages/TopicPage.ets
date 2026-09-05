@@ -10,32 +10,52 @@ import { CommentListResult } from '../model/CommentListResult';
 
 function emojiAlias(name: string): string {
   switch (name.toLowerCase()) {
+    case '+1': case 'thumbsup': return '👍'; case '-1': case 'thumbsdown': return '👎'; case '100': return '💯';
+    case 'angel': return '😇'; case 'anger': case 'angry': return '😠'; case 'beer': return '🍺';
     case 'joy': return '😂'; case 'laugh': return '😆'; case 'smile': return '😄'; case 'grin': return '😁';
-    case 'blush': return '😊'; case 'wink': return '😉'; case 'heart': return '❤️'; case 'love': return '😍';
-    case 'kiss': return '😘'; case 'cry': return '😢'; case 'sob': return '😭'; case 'angry': return '😠';
-    case 'scream': return '😱'; case 'confused': return '😕'; case 'thinking': return '🤔'; case 'sweat': return '😓';
-    case 'neutral': return '😐'; case 'sleep': return '😴'; case 'cool': return '😎'; case 'thumbsup': return '👍';
-    case 'thumbsdown': return '👎'; case 'pray': return '🙏'; case 'clap': return '👏'; case 'fire': return '🔥';
-    case 'star': return '⭐'; case 'tada': return '🎉'; case 'poop': return '💩'; default: return '';
+    case 'blush': return '😊'; case 'wink': return '😉'; case 'heart': return '❤️'; case 'love': case 'heart_eyes': return '😍';
+    case 'kiss': return '😘'; case 'cry': return '😢'; case 'sob': return '😭';
+    case 'boom': return '💥'; case 'bow': return '🙇'; case 'broken_heart': return '💔'; case 'clap': return '👏';
+    case 'cold_sweat': return '😰'; case 'scream': return '😱'; case 'confounded': case 'confused': return '😕';
+    case 'thinking': return '🤔'; case 'sweat': return '😓'; case 'neutral': return '😐'; case 'sleep': case 'zzz': return '😴';
+    case 'cool': return '😎'; case 'cow': return '🐮'; case 'dog': return '🐶'; case 'eggplant': return '🍆';
+    case 'eyes': return '👀'; case 'flushed': return '😳'; case 'ghost': return '👻'; case 'gun': return '🔫';
+    case 'kissing_heart': return '😘'; case 'laughing': return '😆'; case 'mask': return '😷'; case 'moneybag': return '💰';
+    case 'muscle': return '💪'; case 'ng': return '🙅'; case 'octocat': return '🐙'; case 'ok_hand': return '👌';
+    case 'paw_prints': return '🐾'; case 'pig': return '🐷'; case 'pill': return '💊'; case 'pray': return '🙏';
+    case 'santa': return '🎅'; case 'shit': case 'poop': return '💩'; case 'smirk': return '😏'; case 'sos': return '🆘';
+    case 'sparkles': return '✨'; case 'stuck_out_tongue_winking_eye': return '😜'; case 'swimmer': return '🏊';
+    case 'trollface': return '🤪'; case 'underage': return '🔞'; case 'v': return '✌️'; case 'vs': return '🆚';
+    case 'watermelon': return '🍉'; case 'star': return '⭐'; case 'tada': return '🎉'; case 'fire': return '🔥';
+    default: return '';
   }
 }
 
 function emojiCode(value: string): string {
   switch (value) {
+    case '👍': return '+1'; case '👎': return '-1'; case '💯': return '100'; case '😇': return 'angel';
+    case '😠': return 'anger'; case '🍺': return 'beer'; case '💥': return 'boom'; case '🙇': return 'bow';
+    case '💔': return 'broken_heart'; case '😰': return 'cold_sweat'; case '🐮': return 'cow'; case '🐶': return 'dog';
+    case '🍆': return 'eggplant'; case '👀': return 'eyes'; case '😳': return 'flushed'; case '👻': return 'ghost';
+    case '🔫': return 'gun'; case '😷': return 'mask'; case '💰': return 'moneybag'; case '💪': return 'muscle';
+    case '🙅': return 'ng'; case '🐙': return 'octocat'; case '👌': return 'ok_hand'; case '🐾': return 'paw_prints';
+    case '🐷': return 'pig'; case '💊': return 'pill'; case '🎅': return 'santa'; case '😏': return 'smirk';
+    case '🆘': return 'sos'; case '✨': return 'sparkles'; case '😜': return 'stuck_out_tongue_winking_eye';
+    case '🏊': return 'swimmer'; case '🤪': return 'trollface'; case '🔞': return 'underage'; case '✌️': return 'v';
+    case '🆚': return 'vs'; case '🍉': return 'watermelon';
     case '😂': return 'joy'; case '😆': return 'laugh'; case '😄': return 'smile'; case '😁': return 'grin';
     case '😊': return 'blush'; case '😉': return 'wink'; case '❤️': case '❤': return 'heart'; case '😍': return 'love';
-    case '😘': return 'kiss'; case '😢': return 'cry'; case '😭': return 'sob'; case '😠': return 'angry';
+    case '😘': return 'kiss'; case '😢': return 'cry'; case '😭': return 'sob';
     case '😱': return 'scream'; case '😕': return 'confused'; case '🤔': return 'thinking'; case '😓': return 'sweat';
-    case '😐': return 'neutral'; case '😴': return 'sleep'; case '😎': return 'cool'; case '👍': return 'thumbsup';
-    case '👎': return 'thumbsdown'; case '🙏': return 'pray'; case '👏': return 'clap'; case '🔥': return 'fire';
-    case '⭐': return 'star'; case '🎉': return 'tada'; case '💩': return 'poop'; default: return '';
+    case '😐': return 'neutral'; case '😎': return 'cool'; case '🙏': return 'pray'; case '👏': return 'clap';
+    default: return '';
   }
 }
 
 function normalizeReplyContent(value: string): string {
   // Guozaoke's H5 editor submits emoji as :name: tokens. Keep that wire
   // format even when the user types/picks native Unicode emoji in HarmonyOS.
-  return value.replace(/😂|😆|😄|😁|😊|😉|❤️|❤|😍|😘|😢|😭|😠|😱|😕|🤔|😓|😐|😴|😎|👍|👎|🙏|👏|🔥|⭐|🎉|💩/g, (match: string) => {
+  return value.replace(/👍|👎|💯|😇|😠|🍺|💥|🙇|💔|😰|🐮|🐶|🍆|👀|😳|👻|🔫|😷|💰|💪|🙅|🐙|👌|🐾|🐷|💊|🎅|😏|🆘|✨|😜|🏊|🤪|🔞|✌️|🆚|🍉|😂|😆|😄|😁|😊|😉|❤️|❤|😍|😘|😢|😭|😱|😕|🤔|😓|😐|😴|😎|🙏|👏|🔥|⭐|🎉|💩/g, (match: string) => {
     const code = emojiCode(match);
     return code.length > 0 ? `:${code}:` : match;
   });
@@ -165,6 +185,9 @@ struct TopicPage {
   @StorageLink('imageBedApiKey') imageBedApiKey: string = '';
   @State uploadingImage: boolean = false;
   @State editingReplyId: string = '';
+  private readonly replyEmojis: Array<string> = [
+    '😊', '😂', '👍', '❤️', '😭', '🔥', '👏', '😎', '🙏', '🎉', '😱', '💯', '😇', '🤔', '✨'
+  ];
 
   aboutToAppear(): void {
     try {
@@ -575,44 +598,49 @@ struct TopicPage {
         }
       }.layoutWeight(1).width('100%')
       if (this.composerOpen) {
-        Row() {
-          Text('×').fontSize(23).fontColor('#7B8794').width(40).height(48).textAlign(TextAlign.Center)
-            .onClick(() => this.dismissComposer(true))
-          Text(this.uploadingImage ? '上传中…' : '图片').fontSize(12).fontColor(this.uploadingImage ? '#A0A5AB' : this.themeColor)
-            .width(44).textAlign(TextAlign.Center).onClick(() => this.chooseCommentImage())
-          Text('😊').fontSize(18).width(28).textAlign(TextAlign.Center)
-            .hitTestBehavior(HitTestMode.Block).onClick(() => this.comment = `${this.comment}😊`)
-          Text('👍').fontSize(18).width(28).textAlign(TextAlign.Center)
-            .hitTestBehavior(HitTestMode.Block).onClick(() => this.comment = `${this.comment}👍`)
-          Text('😂').fontSize(18).width(28).textAlign(TextAlign.Center)
-            .hitTestBehavior(HitTestMode.Block).onClick(() => this.comment = `${this.comment}😂`)
-          TextArea({ placeholder: this.editingReplyId.length > 0 ? '编辑回复…' : (this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容'), text: this.comment })
-            .id('commentInput')
-            .focusOnTouch(true)
-            .fontSize(15)
-            .fontColor('#30343B')
-            .placeholderColor('#9AA0A6')
-            .caretColor(this.themeColor)
-            .textAlign(TextAlign.Start)
-            .lineHeight(21)
-            .maxLines(3)
-            .layoutWeight(1)
-            .height(56)
-            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-            .backgroundColor('#F5F6F8')
-            .borderRadius(8)
-            .onChange((v: string) => this.comment = v)
-            .onKeyPreIme((event: KeyEvent) => {
-              if (event.keyCode !== 2) return false;
-              // Consume both phases. Removing the editor on key-down would let
-              // the matching key-up reach the page and navigate away.
-              if (event.type === KeyType.Up) this.dismissComposer();
-              return true;
-            })
-          Button(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论')).fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
-            .padding(0).borderRadius(20).backgroundColor(this.themeColor)
-            .enabled(!this.sending && this.comment.trim().length > 0).onClick(() => this.sendComment())
-        }.width('100%').height(72).flexShrink(0).alignItems(VerticalAlign.Center).backgroundColor(Color.White)
+        Column() {
+          Scroll() {
+            Row() {
+              ForEach(this.replyEmojis, (emoji: string) => {
+                Text(emoji).fontSize(20).width(36).height(34).textAlign(TextAlign.Center)
+                  .hitTestBehavior(HitTestMode.Block)
+                  .onClick(() => this.comment = `${this.comment}${emoji}`)
+              }, (emoji: string) => emoji)
+            }.padding({ left: 10, right: 10 })
+          }.width('100%').height(38).scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off)
+          Row() {
+            Text('×').fontSize(23).fontColor('#7B8794').width(40).height(48).textAlign(TextAlign.Center)
+              .onClick(() => this.dismissComposer(true))
+            Text(this.uploadingImage ? '上传中…' : '图片').fontSize(12).fontColor(this.uploadingImage ? '#A0A5AB' : this.themeColor)
+              .width(44).textAlign(TextAlign.Center).onClick(() => this.chooseCommentImage())
+            TextArea({ placeholder: this.editingReplyId.length > 0 ? '编辑回复…' : (this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容'), text: this.comment })
+              .id('commentInput')
+              .focusOnTouch(true)
+              .fontSize(15)
+              .fontColor('#30343B')
+              .placeholderColor('#9AA0A6')
+              .caretColor(this.themeColor)
+              .textAlign(TextAlign.Start)
+              .lineHeight(21)
+              .maxLines(3)
+              .layoutWeight(1)
+              .height(56)
+              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+              .backgroundColor('#F5F6F8')
+              .borderRadius(8)
+              .onChange((v: string) => this.comment = v)
+              .onKeyPreIme((event: KeyEvent) => {
+                if (event.keyCode !== 2) return false;
+                // Consume both phases. Removing the editor on key-down would let
+                // the matching key-up reach the page and navigate away.
+                if (event.type === KeyType.Up) this.dismissComposer();
+                return true;
+              })
+            Button(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论')).fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
+              .padding(0).borderRadius(20).backgroundColor(this.themeColor)
+              .enabled(!this.sending && this.comment.trim().length > 0).onClick(() => this.sendComment())
+          }.width('100%').height(72).alignItems(VerticalAlign.Center)
+        }.width('100%').height(110).flexShrink(0).backgroundColor(Color.White)
           .hitTestBehavior(HitTestMode.Block)
           .border({ width: { top: 1 }, color: '#E6E8EB' })
       }

@@ -457,20 +457,23 @@ export class GuozaokeService {
   }
 
   static async comment(id: string, content: string): Promise<boolean> {
-    const token = GuozaokeService.xsrf();
+    const token = await GuozaokeService.xsrfFor(`/t/${id}`);
     if (token.length === 0) return false;
     const response = await GuozaokeService.post(`/t/${id}`, `tid=${encodeURIComponent(id)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`, `${BASE_URL}/t/${id}`);
-    return response.length > 0 && !/(请先登录|登录后|无权|权限不足|错误|失败|forbidden|login)/i.test(response);
+    // A successful POST is followed by the topic HTML, which can legitimately
+    // contain words such as “失败” in another user's reply. Only reject an
+    // explicit auth/error page so a valid emoji reply is not reported as failed.
+    return response.length > 0 && !GuozaokeService.isAuthOrErrorPage(response);
   }
 
   static async editComment(replyId: string, content: string): Promise<boolean> {
     const safeId = replyId.replace(/[^0-9]/g, '');
     if (safeId.length === 0) return false;
-    const token = GuozaokeService.xsrf();
+    const token = await GuozaokeService.xsrfFor(`/reply/edit/${safeId}`);
     if (token.length === 0) return false;
     const form = `rid=${encodeURIComponent(safeId)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
     const response = await GuozaokeService.post(`/reply/edit/${safeId}`, form, `${BASE_URL}/reply/edit/${safeId}`);
-    if (response.length === 0 || /(找不到|不存在|错误|失败|无权|权限|请登录|登录|forbidden|login)/i.test(response)) return false;
+    if (response.length === 0 || GuozaokeService.isAuthOrErrorPage(response)) return false;
     // The endpoint returns an HTML page even when validation fails. Read the
     // edit form back and compare its textarea rather than treating any nonempty
     // response as success; this prevents a misleading “已更新” toast.
@@ -548,6 +551,25 @@ export class GuozaokeService {
     const item = GuozaokeService.cookie().split(';').find((part: string) => part.trim().startsWith('_xsrf='));
     if (!item) return '';
     return item.trim().substring('_xsrf='.length);
+  }
+
+  static async xsrfFor(path: string): Promise<string> {
+    const cookieToken = GuozaokeService.xsrf();
+    if (cookieToken.length > 0) return cookieToken;
+    try {
+      const html = await GuozaokeService.get(path);
+      const field = html.match(/<input[^>]*name=["']_xsrf["'][^>]*value=["']([^"']+)["'][^>]*>/i) ||
+        html.match(/<input[^>]*value=["']([^"']+)["'][^>]*name=["']_xsrf["'][^>]*>/i);
+      return field && field.length > 1 ? field[1] : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static isAuthOrErrorPage(html: string): boolean {
+    return /(?:请先登录|登录后|无权|权限不足|forbidden)/i.test(html) ||
+      /<form[^>]+(?:login|signin)[^>]*>/i.test(html) ||
+      /<title[^>]*>[^<]*(?:登录|错误|失败)[^<]*<[/]title>/i.test(html);
   }
 
   static async post(path: string, form: string, referer: string = BASE_URL + '/'): Promise<string> {
