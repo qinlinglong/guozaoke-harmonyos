@@ -239,12 +239,11 @@ struct TopicPage {
     this.loading = true;
     this.status = '';
     try {
-      const detail = await Promise.all([
-        GuozaokeService.topicDetail(this.topicId),
-        GuozaokeService.topicCommentPage(this.topicId, 1),
-        GuozaokeService.topicFavoriteState(this.topicId)
-      ]);
-      const topic: TopicDetailData = detail[0];
+      // H5 renders the topic even when a secondary comments/favorite request
+      // is unavailable. Keep the mandatory topic request separate so one
+      // malformed or restricted post cannot turn the whole detail page into
+      // “加载失败”.
+      const topic: TopicDetailData = await GuozaokeService.topicDetail(this.topicId);
       this.body = topic.content;
       this.author = topic.author;
       this.avatar = topic.avatar;
@@ -264,12 +263,22 @@ struct TopicPage {
       // the edit link only while the reply/topic is editable. Mirror that
       // decision instead of allowing every historical own reply to be edited.
       this.canEdit = topic.editUrl.length > 0 && this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName;
-      const commentResult: CommentListResult = detail[1];
+      let commentResult: CommentListResult = new CommentListResult();
+      try {
+        commentResult = await GuozaokeService.topicCommentPage(this.topicId, 1);
+      } catch (_) {
+        commentResult.items = [];
+        commentResult.hasMore = false;
+      }
       this.markEditable(commentResult.items);
       this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
       this.commentPage = 1;
       this.commentsHasMore = commentResult.hasMore;
-      this.favorite = detail[2];
+      try {
+        this.favorite = await GuozaokeService.topicFavoriteState(this.topicId);
+      } catch (_) {
+        this.favorite = false;
+      }
     }
     catch (_) { this.body = '加载失败，请稍后重试'; }
     this.loading = false;
