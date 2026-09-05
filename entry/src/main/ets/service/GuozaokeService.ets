@@ -453,11 +453,13 @@ export class GuozaokeService {
       detail.voteUrl = voteHref && voteHref.length > 1 ? voteHref[1] : '';
       const votePos = html.indexOf(topicVote[0]);
       const voteContext = votePos >= 0 ? html.substring(Math.max(0, votePos - 700), Math.min(html.length, votePos + 1100)) : topicVote[0];
-      detail.voted = /(?:已赞|取消赞|unvote)/i.test(voteContext) ||
+      // The redesigned H5 uses “感谢已表示” with an empty href for an
+      // already-voted topic (the old site used “已赞/取消赞”).
+      detail.voted = /(?:已赞|取消赞|感谢已表示|已感谢|unvote)/i.test(voteContext) ||
         /data-(?:type|voted|status)=["'](?:unvote|voted|1|true)["']/i.test(topicVote[0]) ||
         /class=["'][^"']*(?:voted|is-voted|active)[^"']*["']/i.test(voteContext);
     } else {
-      detail.voted = /(?:已赞|取消赞|unvote)/i.test(visible);
+      detail.voted = /(?:已赞|取消赞|感谢已表示|已感谢|unvote)/i.test(visible);
     }
     // Keep the structural markup here. TopicPage converts it to readable
     // native text while preserving paragraphs, lists and image placeholders.
