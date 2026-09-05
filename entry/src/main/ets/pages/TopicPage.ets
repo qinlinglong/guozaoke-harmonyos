@@ -53,12 +53,12 @@ function emojiCode(value: string): string {
 }
 
 function normalizeReplyContent(value: string): string {
-  // Guozaoke's H5 editor submits emoji as :name: tokens. Keep that wire
-  // format even when the user types/picks native Unicode emoji in HarmonyOS.
-  return value.replace(/👍|👎|💯|😇|😠|🍺|💥|🙇|💔|😰|🐮|🐶|🍆|👀|😳|👻|🔫|😷|💰|💪|🙅|🐙|👌|🐾|🐷|💊|🎅|😏|🆘|✨|😜|🏊|🤪|🔞|✌️|🆚|🍉|😂|😆|😄|😁|😊|😉|❤️|❤|😍|😘|😢|😭|😱|😕|🤔|😓|😐|😴|😎|🙏|👏|🔥|⭐|🎉|💩/g, (match: string) => {
-    const code = emojiCode(match);
-    return code.length > 0 ? `:${code}:` : match;
-  });
+  // Replies are plain text on the H5 endpoint. Remove native emoji and the
+  // site's :name: aliases before encoding the request; never submit image or
+  // emoji markup from the native composer.
+  return value
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F\u200D]/gu, '')
+    .replace(/:([A-Za-z0-9_+-]+):/g, (match: string, name: string) => emojiAlias(name).length > 0 ? '' : match);
 }
 
 function decodeEntity(value: string): string {
@@ -190,9 +190,6 @@ struct TopicPage {
   @StorageLink('imageBedApiKey') imageBedApiKey: string = '';
   @State uploadingImage: boolean = false;
   @State editingReplyId: string = '';
-  private readonly replyEmojis: Array<string> = [
-    '😊', '😂', '👍', '❤️', '😭', '🔥', '👏', '😎', '🙏', '🎉', '😱', '💯', '😇', '🤔', '✨'
-  ];
 
   aboutToAppear(): void {
     try {
@@ -304,8 +301,12 @@ struct TopicPage {
   }
 
   private async sendComment(): Promise<void> {
-    const value = normalizeReplyContent(this.comment.trim());
-    if (this.sending || value.length === 0 || this.topicId.length === 0) return;
+    const raw = this.comment.trim();
+    const value = normalizeReplyContent(raw).trim();
+    if (this.sending || value.length === 0 || this.topicId.length === 0) {
+      if (raw.length > 0 && value.length === 0) this.notify('回复仅支持文本，表情已过滤');
+      return;
+    }
     if (!GuozaokeService.isLoggedIn()) {
       this.notify('请先登录');
       return;
@@ -384,12 +385,19 @@ struct TopicPage {
     }
   }
 
-  private openReplyEditor(item: CommentItem): void {
+  private async openReplyEditor(item: CommentItem): Promise<void> {
     if (!item.editable || item.id.length === 0) return;
     this.editingReplyId = item.id;
     this.replyTarget = '';
-    this.comment = htmlText(item.content, false);
+    this.comment = normalizeReplyContent(htmlText(item.content, false)).trim();
     this.composerOpen = true;
+    // Read the canonical edit form so links, mentions and line breaks are
+    // echoed exactly as stored by the website, instead of reverse-parsing the
+    // rendered comment markup.
+    const draft = await GuozaokeService.replyEditDraft(item.id);
+    if (this.editingReplyId === item.id && draft.length > 0) {
+      this.comment = normalizeReplyContent(draft).trim();
+    }
     setTimeout(() => {
       try { this.getUIContext().getFocusController().requestFocus('commentInput'); } catch (_) {}
     }, 120);
@@ -622,15 +630,6 @@ struct TopicPage {
       }.layoutWeight(1).width('100%')
       if (this.composerOpen) {
         Column() {
-          Scroll() {
-            Row() {
-              ForEach(this.replyEmojis, (emoji: string) => {
-                Text(emoji).fontSize(20).width(36).height(34).textAlign(TextAlign.Center)
-                  .hitTestBehavior(HitTestMode.Block)
-                  .onClick(() => this.comment = `${this.comment}${emoji}`)
-              }, (emoji: string) => emoji)
-            }.padding({ left: 10, right: 10 })
-          }.width('100%').height(38).scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Off)
           Row() {
             Text('×').fontSize(23).fontColor('#7B8794').width(40).height(48).textAlign(TextAlign.Center)
               .onClick(() => this.dismissComposer(true))

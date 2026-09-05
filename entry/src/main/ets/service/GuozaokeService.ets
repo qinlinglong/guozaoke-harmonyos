@@ -489,12 +489,28 @@ export class GuozaokeService {
     }
   }
 
+  static async replyEditDraft(replyId: string): Promise<string> {
+    const safeId = replyId.replace(/[^0-9]/g, '');
+    if (safeId.length === 0) return '';
+    try {
+      const html = await GuozaokeService.get(`/reply/edit/${safeId}`);
+      const textarea = html.match(/<textarea[^>]*name=["']content["'][^>]*>([\s\S]*?)<\/textarea>/i);
+      return textarea && textarea.length > 1 ? decodeHtml(textarea[1]).replace(/\r\n/g, '\n').trim() : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   static async newTopic(nodeCode: string, title: string, content: string): Promise<boolean> {
     const safeCode = nodeCode.replace(/[^A-Za-z0-9_-]/g, '');
     if (safeCode.length === 0) return false;
-    const token = GuozaokeService.xsrf();
-    const response = await GuozaokeService.post(`/t/create/${safeCode}`, `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`, `${BASE_URL}/t/create/${safeCode}`);
-    return response.length > 0;
+    const createPath = `/t/create/${safeCode}`;
+    const token = await GuozaokeService.xsrfFor(createPath);
+    if (token.length === 0) return false;
+    const response = await GuozaokeService.post(createPath,
+      `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`,
+      `${BASE_URL}${createPath}`);
+    return response.length > 0 && !GuozaokeService.isAuthOrErrorPage(response);
   }
 
   static async editTopic(id: string, title: string, content: string): Promise<boolean> {
@@ -506,24 +522,12 @@ export class GuozaokeService {
     const editPath = `/t/edit/${safeId}`;
     const token = await GuozaokeService.xsrfFor(editPath);
     if (token.length === 0) return false;
-    const form = `tid=${encodeURIComponent(safeId)}&title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
+    const form = `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
     const response = await GuozaokeService.post(editPath, form, `${BASE_URL}${editPath}`);
-    if (response.length === 0 || GuozaokeService.isAuthOrErrorPage(response)) return false;
-    // Read the form back and compare both fields. This verifies the server
-    // persisted the edit instead of merely returning an HTML response.
-    try {
-      const formPage: string = await GuozaokeService.get(editPath);
-      const titleField = formPage.match(/<input[^>]*name=["']title["'][^>]*value=["']([^"']*)["']/i) ||
-        formPage.match(/<input[^>]*value=["']([^"']*)["'][^>]*name=["']title["']/i);
-      const contentField = formPage.match(/<textarea[^>]*name=["']content["'][^>]*>([\s\S]*?)<\/textarea>/i);
-      if (!titleField || titleField.length < 2 || !contentField || contentField.length < 2) return false;
-      const actualTitle = decodeHtml(titleField[1]).replace(/\r\n/g, '\n').trim();
-      const actualContent = decodeHtml(contentField[1]).replace(/\r\n/g, '\n').trim();
-      return actualTitle === title.replace(/\r\n/g, '\n').trim() &&
-        actualContent === content.replace(/\r\n/g, '\n').trim();
-    } catch (_) {
-      return false;
-    }
+    // A successful edit redirects to the topic page. Do not re-fetch the edit
+    // form here: the redesigned site redirects direct GETs of that form back
+    // to the topic page, which made a real edit look like a failed save.
+    return response.length > 0 && !GuozaokeService.isAuthOrErrorPage(response);
   }
 
   static async uploadImage(uri: string, apiKey: string): Promise<string> {

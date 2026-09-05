@@ -64,6 +64,7 @@ export default class EntryAbility extends UIAbility {
       PersistentStorage.persistProp('commentsOrderDesc', false);
       PersistentStorage.persistProp('imageBedApiKey', '');
       PersistentStorage.persistProp('themeColor', DEFAULT_THEME_COLOR);
+      PersistentStorage.persistProp('selfProfileCache', '');
       AppStorage.setOrCreate('safeAreaTop', 0);
       AppStorage.setOrCreate('safeAreaBottom', 0);
       const mainWindow: window.Window = windowStage.getMainWindowSync();

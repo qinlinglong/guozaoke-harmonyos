@@ -72,8 +72,8 @@ struct NewTopicPage {
             : await GuozaokeService.newTopic(this.nodeCode, this.title.trim(), this.content.trim());
           if (ok) {
             this.status = this.editing ? '保存成功' : '发布成功'; setTimeout(() => router.back(), 500);
-          } else this.status = '发布失败，请稍后重试';
-        } catch (_) { this.status = '发布失败，请稍后重试'; }
+          } else this.status = this.editing ? '保存失败，请稍后重试' : '发布失败，请稍后重试';
+        } catch (_) { this.status = this.editing ? '保存失败，请稍后重试' : '发布失败，请稍后重试'; }
         this.submitting = false;
       }); }
         .width('100%').height(60).flexShrink(0).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
