@@ -115,15 +115,17 @@ function contentParts(value: string): Array<ContentPart> {
     .replace(/<(?:strong|b)\b[^>]*>/gi, '**').replace(/<\/(?:strong|b)>/gi, '**')
     .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
       (_all: string, url: string, label: string) => {
-        const cleanLabel: string = htmlText(label);
+      const cleanLabel: string = htmlText(label);
         if (cleanLabel.length === 0 || /^(?:#|\/favorite|\/unfavorite|\/vote)/i.test(url) || cleanLabel === '编辑主题') return '';
+        const profile = url.match(/^\/u\/([A-Za-z0-9_-]+)(?:[?#].*)?$/i);
+        if (profile && profile.length > 1) return `[${cleanLabel}](native-profile://${profile[1]})`;
         return `[${cleanLabel}](${url})`;
       });
   // Images are rendered as native Image components by the topic page. Do not
   // leave the parser's textual "[图片]" placeholder beside the real image.
   const source: string = htmlText(markdown, false);
   const result: Array<ContentPart> = [];
-  const token = /(\*\*[\s\S]+?\*\*|\[[^\]]+\]\([^\s)]+\)|https?:\/\/[^\s<>()]+)/g;
+  const token = /(\*\*[\s\S]+?\*\*|\[[^\]]+\]\([^\s)]+\)|https?:\/\/[^\s<>()]+|@[A-Za-z0-9][A-Za-z0-9_-]{1,31})/g;
   let cursor: number = 0;
   let matched: RegExpExecArray | null = token.exec(source);
   while (matched) {
@@ -134,6 +136,9 @@ function contentParts(value: string): Array<ContentPart> {
     } else if (raw.startsWith('[')) {
       const link = raw.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
       if (link) appendContentPart(result, link[1], false, link[2]);
+    } else if (raw.startsWith('@')) {
+      const username = raw.substring(1);
+      appendContentPart(result, raw, false, `native-profile://${username}`);
     } else {
       appendContentPart(result, raw, false, raw);
     }
@@ -442,12 +447,19 @@ struct TopicPage {
   nativeContent(value: string, fontSize: number, lineHeight: number) {
     Text() {
       ForEach(contentParts(value), (part: ContentPart, index: number) => {
-        Span(part.text)
-          .fontWeight(part.bold ? FontWeight.Bold : FontWeight.Normal)
-          .fontColor(part.url.length > 0 ? this.themeColor : '#3C4043')
-          .decoration({ type: part.url.length > 0 ? TextDecorationType.Underline : TextDecorationType.None,
-            color: part.url.length > 0 ? this.themeColor : '#3C4043' })
-          .onClick(() => { if (part.url.length > 0) this.openExternal(part.url); })
+      Span(part.text)
+        .fontWeight(part.bold ? FontWeight.Bold : FontWeight.Normal)
+        .fontColor(part.url.length > 0 ? this.themeColor : '#3C4043')
+        .decoration({ type: part.url.length > 0 ? TextDecorationType.Underline : TextDecorationType.None,
+          color: part.url.length > 0 ? this.themeColor : '#3C4043' })
+        .onClick(() => {
+          if (part.url.startsWith('native-profile://')) {
+            const username = part.url.substring('native-profile://'.length);
+            if (username.length > 0) setTimeout(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username } }), 80);
+          } else if (part.url.length > 0) {
+            this.openExternal(part.url);
+          }
+        })
       }, (part: ContentPart, index: number) => `${index}-${part.text}-${part.url}`)
     }.fontSize(fontSize).lineHeight(lineHeight).width('100%')
       // Let HarmonyOS provide the native long-press menu, including copy,
@@ -516,15 +528,28 @@ struct TopicPage {
           // intentionally grouped together instead of spreading across the
           // row, which mirrors the compact action area in the H5 client.
           Row() {
-            Text('回复').fontSize(14).fontColor(this.themeColor).padding({ left: 10, right: 10, top: 9, bottom: 9 })
-              .onClick(() => this.openComposer())
-            Text(this.favoriteBusy ? '处理中…' : (this.favorite ? '已收藏' : '收藏')).fontSize(13).fontColor('#7B8794').margin({ left: 18, right: 18 })
-              .onClick(() => this.toggleFavorite())
-            Text(this.topicVoted ? '已赞' : '赞').fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : this.themeColor).margin({ right: 18 })
-              .onClick(() => this.voteTopic())
-            Image($r('app.media.ic_share')).width(20).height(20).fillColor(this.themeColor)
-              .margin({ left: 6, right: 6 }).onClick(() => this.copyShareLink())
-          }.width('100%').height(48).padding({ left: 4, right: 4 }).backgroundColor(Color.White).borderRadius(8)
+            Row() {
+              Image($r('app.media.ic_reply')).width(19).height(19).fillColor(this.themeColor).margin({ right: 5 })
+              Text('回复').fontSize(13).fontColor(this.themeColor)
+            }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.openComposer())
+            Row() {
+              Image($r('app.media.ic_favorite')).width(19).height(19).fillColor(this.favorite ? this.themeColor : '#7B8794').margin({ right: 5 })
+              Text(this.favoriteBusy ? '处理中…' : (this.favorite ? '已收藏' : '收藏')).fontSize(13).fontColor(this.favorite ? this.themeColor : '#7B8794')
+            }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.toggleFavorite())
+            Row() {
+              Image($r('app.media.ic_like')).width(19).height(19).fillColor(this.topicVoted ? '#F59E0B' : this.themeColor).margin({ right: 5 })
+              Text(this.topicVoted ? '已赞' : '赞').fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : this.themeColor)
+            }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.voteTopic())
+            Row() {
+              Image($r('app.media.ic_share')).width(19).height(19).fillColor(this.themeColor)
+            }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.copyShareLink())
+            if (this.canEdit) {
+              Row() {
+                Image($r('app.media.ic_edit')).width(19).height(19).fillColor(this.themeColor)
+                Text('编辑').fontSize(13).fontColor(this.themeColor).margin({ left: 5 })
+              }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.openEditor())
+            }
+          }.width('100%').height(48).padding({ left: 2, right: 2 }).backgroundColor(Color.White).borderRadius(8)
             .border({ width: { top: 1, bottom: 1 }, color: '#E6E8EB' }).margin({ top: 8, bottom: 4 })
           // Secondary metadata stays on its own line so the actions remain
           // easy to hit and the counts are visually subordinate.
@@ -533,9 +558,6 @@ struct TopicPage {
             Blank()
             Text(`${this.favoriteCount} 人收藏`).fontSize(12).fontColor('#8A9199')
             Text(`${this.voteCount} 人赞`).fontSize(12).fontColor(this.topicVoted ? '#F59E0B' : '#8A9199').margin({ left: 12 })
-            if (this.canEdit) {
-              Text('编辑主题').fontSize(12).fontColor(this.themeColor).margin({ left: 14 }).onClick(() => this.openEditor())
-            }
           }.width('100%').padding({ left: 4, right: 4, top: 8, bottom: 4 })
           Row() {
             Text(`评论 ${this.comments.length}`).fontSize(17).fontWeight(FontWeight.Medium).fontColor('#30343B')
@@ -647,12 +669,12 @@ struct TopicPage {
       if (this.status.length > 0) {
         Row() { Text(this.status).fontSize(13).fontColor(this.themeColor).textAlign(TextAlign.Center).width('100%') }
           .width('92%').height(36).backgroundColor('#E8F5EE').borderRadius(18)
-          .shadow({ radius: 8, color: '#33000000', offsetY: 2 }).position({ x: '4%', y: '78%' }).zIndex(20)
+          .shadow({ radius: 8, color: '#33000000', offsetY: 2 }).position({ x: '4%', y: '46%' }).zIndex(20)
       }
       if (this.shared) {
         Row() { Text('分享链接已复制').fontSize(13).fontColor(this.themeColor).textAlign(TextAlign.Center).width('100%') }
           .width('92%').height(36).backgroundColor('#E8F5EE').borderRadius(18)
-          .shadow({ radius: 8, color: '#33000000', offsetY: 2 }).position({ x: '4%', y: '78%' }).zIndex(20)
+          .shadow({ radius: 8, color: '#33000000', offsetY: 2 }).position({ x: '4%', y: '46%' }).zIndex(20)
       }
     }.width('100%').height('100%').padding({ top: this.safeAreaTop, bottom: this.safeAreaBottom }).backgroundColor('#F5F5F5')
       .hitTestBehavior(HitTestMode.BLOCK_HIERARCHY)
