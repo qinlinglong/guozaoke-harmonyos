@@ -2,6 +2,11 @@ import { router } from '@kit.ArkUI';
 import { GuozaokeService } from '../service/GuozaokeService';
 import { UserProfile } from '../model/UserProfile';
 
+// Keep the last successfully loaded profile in memory while navigating. The
+// page paints this snapshot immediately and refreshes it in the background,
+// so returning to the profile never flashes an empty banner.
+const profileCache: Map<string, UserProfile> = new Map();
+
 @Entry
 @Component
 struct ProfilePage {
@@ -27,7 +32,21 @@ struct ProfilePage {
     } catch (_) {}
     this.requestedSelf = this.username.length === 0;
     this.self = this.requestedSelf;
+    const cached: UserProfile | undefined = profileCache.get(this.requestedSelf ? '__self__' : this.username);
+    if (cached) {
+      this.applyProfile(cached);
+      this.loading = false;
+    }
     this.load();
+  }
+
+  private applyProfile(profile: UserProfile): void {
+    this.avatar = profile.avatar;
+    this.username = profile.username;
+    this.number = profile.number;
+    this.since = profile.since;
+    this.followed = profile.followed;
+    this.blocked = profile.blocked;
   }
 
   async load(): Promise<void> {
@@ -36,15 +55,12 @@ struct ProfilePage {
     this.self = this.requestedSelf || (selfName.length > 0 && this.username === selfName);
     try {
       const profile: UserProfile = await GuozaokeService.userProfile(this.username);
-      this.avatar = profile.avatar;
-      this.username = profile.username;
-      this.number = profile.number;
-      this.since = profile.since;
-      this.followed = profile.followed;
-      this.blocked = profile.blocked;
+      this.applyProfile(profile);
+      profileCache.set(profile.username, profile);
+      if (this.requestedSelf) profileCache.set('__self__', profile);
     } catch (_) {
       if (this.self) this.avatar = await GuozaokeService.selfAvatar();
-      this.status = '资料加载失败，点击重试';
+      if (this.avatar.length === 0 && this.username.length === 0) this.status = '资料加载失败，点击重试';
     }
     this.loading = false;
   }

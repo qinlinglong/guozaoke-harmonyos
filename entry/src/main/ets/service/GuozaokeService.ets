@@ -458,16 +458,18 @@ export class GuozaokeService {
 
   static async comment(id: string, content: string): Promise<boolean> {
     const token = GuozaokeService.xsrf();
-    const response = await GuozaokeService.post(`/t/${id}`, `tid=${encodeURIComponent(id)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`);
-    return response.length > 0;
+    if (token.length === 0) return false;
+    const response = await GuozaokeService.post(`/t/${id}`, `tid=${encodeURIComponent(id)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`, `${BASE_URL}/t/${id}`);
+    return response.length > 0 && !/(请先登录|登录后|无权|权限不足|错误|失败|forbidden|login)/i.test(response);
   }
 
   static async editComment(replyId: string, content: string): Promise<boolean> {
     const safeId = replyId.replace(/[^0-9]/g, '');
     if (safeId.length === 0) return false;
     const token = GuozaokeService.xsrf();
+    if (token.length === 0) return false;
     const form = `rid=${encodeURIComponent(safeId)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
-    const response = await GuozaokeService.post(`/reply/edit/${safeId}`, form);
+    const response = await GuozaokeService.post(`/reply/edit/${safeId}`, form, `${BASE_URL}/reply/edit/${safeId}`);
     if (response.length === 0 || /(找不到|不存在|错误|失败|无权|权限|请登录|登录|forbidden|login)/i.test(response)) return false;
     // The endpoint returns an HTML page even when validation fails. Read the
     // edit form back and compare its textarea rather than treating any nonempty
@@ -488,7 +490,7 @@ export class GuozaokeService {
     const safeCode = nodeCode.replace(/[^A-Za-z0-9_-]/g, '');
     if (safeCode.length === 0) return false;
     const token = GuozaokeService.xsrf();
-    const response = await GuozaokeService.post(`/t/create/${safeCode}`, `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`);
+    const response = await GuozaokeService.post(`/t/create/${safeCode}`, `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`, `${BASE_URL}/t/create/${safeCode}`);
     return response.length > 0;
   }
 
@@ -497,7 +499,7 @@ export class GuozaokeService {
     if (safeId.length === 0) return false;
     const token = GuozaokeService.xsrf();
     const form = `tid=${encodeURIComponent(safeId)}&title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
-    const response = await GuozaokeService.post(`/t/${safeId}/edit`, form);
+    const response = await GuozaokeService.post(`/t/${safeId}/edit`, form, `${BASE_URL}/t/${safeId}/edit`);
     return response.length > 0 && !/(找不到|不存在|错误|失败|forbidden|login)/i.test(response);
   }
 
@@ -548,12 +550,18 @@ export class GuozaokeService {
     return item.trim().substring('_xsrf='.length);
   }
 
-  static async post(path: string, form: string): Promise<string> {
+  static async post(path: string, form: string, referer: string = BASE_URL + '/'): Promise<string> {
     const request: http.HttpRequest = http.createHttp();
     try {
       const response: http.HttpResponse = await request.request(`${BASE_URL}${path}`, {
         method: http.RequestMethod.POST,
-        header: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cookie': GuozaokeService.cookie(), 'Referer': BASE_URL + '/' },
+        header: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': GuozaokeService.cookie(),
+          'Referer': referer,
+          'User-Agent': 'Mozilla/5.0 (HarmonyOS; Mobile) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        },
         extraData: form,
         connectTimeout: 8000,
         readTimeout: 10000,

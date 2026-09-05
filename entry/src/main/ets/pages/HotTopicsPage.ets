@@ -37,7 +37,7 @@ struct HotTopicsPage {
         Image($r('app.media.ic_hot')).width(22).height(22).margin({ left: 8, right: 10 })
         Text('今日热议').fontSize(20).fontColor('#30343B').fontWeight(FontWeight.Bold)
         Blank()
-        Text('刷新').fontSize(13).fontColor(this.themeColor).padding({ left: 10, right: 10, top: 8, bottom: 8 })
+        Image($r('app.media.ic_refresh')).width(22).height(22).fillColor(this.themeColor).margin({ right: 8 })
           .onClick(() => this.load())
       }.width('100%').height(60).flexShrink(0).padding({ left: 8, right: 12 }).backgroundColor(Color.White)
 

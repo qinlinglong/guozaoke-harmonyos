@@ -442,7 +442,8 @@ struct TopicPage {
         })
         Text('主题详情').fontSize(18).fontColor('#333333').fontWeight(FontWeight.Medium).margin({ left: 8 })
         Blank()
-        Text('分享').fontSize(15).fontColor(this.themeColor).padding({ left: 12, right: 12, top: 8, bottom: 8 }).onClick(() => this.copyShareLink())
+        Image($r('app.media.ic_share')).width(24).height(24).fillColor(this.themeColor).margin({ right: 8 })
+          .onClick(() => this.copyShareLink())
       }.width('100%').height(56).flexShrink(0).padding({ left: 8, right: 12 }).backgroundColor(Color.White)
       Stack() {
         Scroll() {
@@ -498,7 +499,8 @@ struct TopicPage {
               .onClick(() => this.toggleFavorite())
             Text(this.topicVoted ? '已赞' : '赞').fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : this.themeColor).margin({ right: 18 })
               .onClick(() => this.voteTopic())
-            Text('分享').fontSize(13).fontColor(this.themeColor).onClick(() => this.copyShareLink())
+            Image($r('app.media.ic_share')).width(20).height(20).fillColor(this.themeColor)
+              .margin({ left: 6, right: 6 }).onClick(() => this.copyShareLink())
           }.width('100%').height(48).padding({ left: 4, right: 4 }).backgroundColor(Color.White).borderRadius(8)
             .border({ width: { top: 1, bottom: 1 }, color: '#E6E8EB' }).margin({ top: 8, bottom: 4 })
           // Secondary metadata stays on its own line so the actions remain
