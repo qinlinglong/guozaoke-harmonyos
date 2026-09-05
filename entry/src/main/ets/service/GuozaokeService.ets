@@ -500,10 +500,30 @@ export class GuozaokeService {
   static async editTopic(id: string, title: string, content: string): Promise<boolean> {
     const safeId = id.replace(/[^0-9]/g, '');
     if (safeId.length === 0) return false;
-    const token = GuozaokeService.xsrf();
+    // The redesigned site uses /t/edit/:id. The old /t/:id/edit path can
+    // return a normal topic page without applying the submitted form, which
+    // made the native editor report success while a refresh showed old data.
+    const editPath = `/t/edit/${safeId}`;
+    const token = await GuozaokeService.xsrfFor(editPath);
+    if (token.length === 0) return false;
     const form = `tid=${encodeURIComponent(safeId)}&title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
-    const response = await GuozaokeService.post(`/t/${safeId}/edit`, form, `${BASE_URL}/t/${safeId}/edit`);
-    return response.length > 0 && !/(找不到|不存在|错误|失败|forbidden|login)/i.test(response);
+    const response = await GuozaokeService.post(editPath, form, `${BASE_URL}${editPath}`);
+    if (response.length === 0 || GuozaokeService.isAuthOrErrorPage(response)) return false;
+    // Read the form back and compare both fields. This verifies the server
+    // persisted the edit instead of merely returning an HTML response.
+    try {
+      const formPage: string = await GuozaokeService.get(editPath);
+      const titleField = formPage.match(/<input[^>]*name=["']title["'][^>]*value=["']([^"']*)["']/i) ||
+        formPage.match(/<input[^>]*value=["']([^"']*)["'][^>]*name=["']title["']/i);
+      const contentField = formPage.match(/<textarea[^>]*name=["']content["'][^>]*>([\s\S]*?)<\/textarea>/i);
+      if (!titleField || titleField.length < 2 || !contentField || contentField.length < 2) return false;
+      const actualTitle = decodeHtml(titleField[1]).replace(/\r\n/g, '\n').trim();
+      const actualContent = decodeHtml(contentField[1]).replace(/\r\n/g, '\n').trim();
+      return actualTitle === title.replace(/\r\n/g, '\n').trim() &&
+        actualContent === content.replace(/\r\n/g, '\n').trim();
+    } catch (_) {
+      return false;
+    }
   }
 
   static async uploadImage(uri: string, apiKey: string): Promise<string> {
