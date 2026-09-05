@@ -112,6 +112,29 @@ function topicPageFromHtml(html: string, page: number): TopicListResult {
   return result;
 }
 
+// The replies page is not a topic-card list.  It contains reply-item blocks
+// with a link to the topic being replied to, so the native list needs a small
+// adapter instead of the topic-card parser (which otherwise returns nothing).
+function replyPageFromHtml(html: string, page: number): TopicListResult {
+  const result = new TopicListResult();
+  const blocks: Array<string> = html.match(/<div[^>]*class=["'][^"']*reply-item[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*reply-item|<ul[^>]*class=["'][^"']*pagination|<\/main>|<\/body>)/gi) ?? [];
+  blocks.forEach((block: string, index: number) => {
+    const topicLink = block.match(/<a[^>]*href=["'](?:https?:\/\/[^"']+)?\/t\/(\d+)(?:#[^"']*)?["'][^>]*>([\s\S]*?)<\/a>/i);
+    if (!topicLink || topicLink.length < 3) return;
+    const topic = new Topic();
+    topic.id = topicLink[1];
+    topic.title = decodeHtml(topicLink[2]).replace(/\s+/g, ' ').trim();
+    if (topic.title.length === 0) topic.title = `回复的主题 #${index + 1}`;
+    // The list view appends the localized “回复” label itself.
+    topic.replies = '1';
+    const avatarTag = block.match(/<img[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
+    topic.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
+    if (topic.id.length > 0 && !result.topics.some((item: Topic) => item.id === topic.id)) result.topics.push(topic);
+  });
+  result.hasMore = result.topics.length > 0 && hasNextPage(html, page);
+  return result;
+}
+
 function appendNode(result: Array<NodeItem>, codeValue: string, titleValue: string): void {
   let decodedCode: string = codeValue;
   try { decodedCode = decodeURIComponent(codeValue); } catch (_) { }
@@ -276,7 +299,7 @@ export class GuozaokeService {
     const safeName = username.replace(/[^A-Za-z0-9_-]/g, '');
     if (safeName.length === 0) return new TopicListResult();
     const html: string = await GuozaokeService.get(pagePath(`/u/${safeName}/${kind}`, page));
-    return topicPageFromHtml(html, page);
+    return kind === 'replies' ? replyPageFromHtml(html, page) : topicPageFromHtml(html, page);
   }
 
   static async userTopics(kind: string, page: number = 1): Promise<Array<Topic>> {
