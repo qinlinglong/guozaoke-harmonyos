@@ -11,6 +11,11 @@ import { TopicListResult } from '../model/TopicListResult';
 import { NotificationListResult } from '../model/NotificationListResult';
 import { CommentListResult } from '../model/CommentListResult';
 
+export class VoteResult {
+  success: boolean = false;
+  alreadyVoted: boolean = false;
+}
+
 export const BASE_URL: string = 'https://www.guozaoke.com';
 export const LOGIN_URL: string = `${BASE_URL}/login`;
 
@@ -446,9 +451,11 @@ export class GuozaokeService {
     if (topicVote) {
       const voteHref = topicVote[0].match(/(?:href|data-href|data-url)=["']([^"']+)["']/i);
       detail.voteUrl = voteHref && voteHref.length > 1 ? voteHref[1] : '';
-      detail.voted = /(?:已赞|取消赞|unvote)/i.test(topicVote[0]) ||
+      const votePos = html.indexOf(topicVote[0]);
+      const voteContext = votePos >= 0 ? html.substring(Math.max(0, votePos - 700), Math.min(html.length, votePos + 1100)) : topicVote[0];
+      detail.voted = /(?:已赞|取消赞|unvote)/i.test(voteContext) ||
         /data-(?:type|voted|status)=["'](?:unvote|voted|1|true)["']/i.test(topicVote[0]) ||
-        /class=["'][^"']*(?:voted|is-voted|active)[^"']*["']/i.test(topicVote[0]);
+        /class=["'][^"']*(?:voted|is-voted|active)[^"']*["']/i.test(voteContext);
     } else {
       detail.voted = /(?:已赞|取消赞|unvote)/i.test(visible);
     }
@@ -556,15 +563,29 @@ export class GuozaokeService {
   }
 
   static async vote(url: string): Promise<boolean> {
+    return (await GuozaokeService.voteResult(url)).success;
+  }
+
+  static async voteResult(url: string): Promise<VoteResult> {
+    const result = new VoteResult();
     try {
       const path = url.startsWith(BASE_URL) ? url.substring(BASE_URL.length) : url;
       const response = await GuozaokeService.get(path);
-      if (response.length === 0) return false;
+      if (response.length === 0) return result;
+      if (/(?:["']success["']\s*:\s*1|thanks_for_your_vote)/i.test(response)) {
+        result.success = true;
+        return result;
+      }
+      if (/already_voted/i.test(response)) {
+        result.alreadyVoted = true;
+        return result;
+      }
       // Vote endpoints return JSON on H5. A non-empty response is not enough:
       // already-voted and rejected requests also contain a response body.
-      if (/(?:"|')success(?:"|')\s*:\s*0|already_voted|vote_failed|forbidden/i.test(response)) return false;
-      return true;
-    } catch (_) { return false; }
+      if (/(?:"|')success(?:"|')\s*:\s*0|vote_failed|forbidden/i.test(response)) return result;
+      result.success = true;
+      return result;
+    } catch (_) { return result; }
   }
 
   static async comment(id: string, content: string): Promise<boolean> {

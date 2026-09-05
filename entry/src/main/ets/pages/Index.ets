@@ -50,7 +50,10 @@ struct Index {
     } else if (event.type === TouchType.Move) {
       const deltaX = point.windowX - this.touchStartX;
       const deltaY = point.windowY - this.touchStartY;
-      if (Math.abs(deltaX) > 18 || Math.abs(deltaY) > 18) {
+      // A card click should survive the small pointer drift that commonly
+      // happens on a real device. Only a deliberate horizontal gesture is
+      // allowed to cancel the card click and switch tabs.
+      if (Math.abs(deltaX) > 72 && Math.abs(deltaX) > Math.abs(deltaY) * 1.25) {
         this.touchMoved = true;
       }
       // A horizontal gesture changes the selected tab in sequence. Mark it
@@ -287,7 +290,7 @@ struct Index {
                     .backgroundColor(Color.White)
                     .onTouch((event: TouchEvent) => this.trackTopicTouch(event))
                     .onClick(() => {
-                      if (this.touchMoved) return;
+                      if (this.touchMoved || this.horizontalSwipeHandled) return;
                       router.pushUrl({
                         url: 'pages/TopicPage', params: { id: topic.id, title: topic.title }
                       });

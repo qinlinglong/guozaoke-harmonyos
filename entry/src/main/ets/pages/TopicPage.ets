@@ -322,12 +322,16 @@ struct TopicPage {
     }
     this.topicVoteBusy = true;
     try {
-      const ok = await GuozaokeService.vote(this.topicVoteUrl);
-      if (ok) {
+      const result = await GuozaokeService.voteResult(this.topicVoteUrl);
+      if (result.success) {
         this.topicVoted = true;
         localVotedTopics.add(this.topicId);
         this.voteCount += 1;
         this.notify('点赞成功');
+      } else if (result.alreadyVoted) {
+        this.topicVoted = true;
+        localVotedTopics.add(this.topicId);
+        this.notify('您已经点过赞了');
       } else this.notify('点赞失败，请稍后重试');
     } finally {
       this.topicVoteBusy = false;
