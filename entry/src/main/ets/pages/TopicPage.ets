@@ -629,8 +629,10 @@ struct TopicPage {
             }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.toggleFavorite())
             Row() {
               Image($r('app.media.ic_like')).width(19).height(19).fillColor(this.topicVoted ? '#F59E0B' : '#7B8794').margin({ right: 5 })
-              Text(this.ownTopic ? '不能喜欢自己的主题' : (this.topicVoteBusy ? '处理中…' : (this.topicVoted ? '已赞' : '赞'))).fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : '#7B8794')
-            }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center).onClick(() => this.voteTopic())
+              Text(this.ownTopic ? '不能喜欢自己的主题' : (this.topicVoteBusy ? '处理中…' : (this.topicVoted ? '已赞' : '赞'))).fontSize(13).fontColor(this.ownTopic ? '#B8BEC5' : (this.topicVoted ? '#F59E0B' : '#7B8794'))
+            }.layoutWeight(1).height(46).justifyContent(FlexAlign.Center)
+              .opacity(this.ownTopic ? 0.55 : 1)
+              .onClick(() => { if (!this.ownTopic) this.voteTopic(); })
             Row() {
               Image($r('app.media.ic_share')).width(19).height(19).fillColor('#7B8794')
               Text('分享').fontSize(13).fontColor('#7B8794').margin({ left: 5 })
