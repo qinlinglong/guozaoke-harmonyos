@@ -333,6 +333,13 @@ struct TopicPage {
       this.notify('正在提交，请稍候');
       return;
     }
+    // H5 does not send a vote request for the author's own topic. It keeps
+    // the control visible but responds with this specific message instead of
+    // reporting a generic request failure.
+    if (this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName) {
+      this.notify('不能喜欢自己的主题');
+      return;
+    }
     if (this.topicVoted || this.topicVoteUrl.length === 0) {
       this.notify(this.topicVoted ? '已经点过赞了' : '当前主题暂不支持点赞');
       return;
@@ -349,6 +356,8 @@ struct TopicPage {
         this.topicVoted = true;
         localVotedTopics.add(this.topicId);
         this.notify('您已经点过赞了');
+      } else if (result.ownTopic) {
+        this.notify('不能喜欢自己的主题');
       } else this.notify('点赞失败，请稍后重试');
     } finally {
       this.topicVoteBusy = false;

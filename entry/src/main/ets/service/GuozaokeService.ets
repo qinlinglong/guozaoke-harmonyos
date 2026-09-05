@@ -14,6 +14,7 @@ import { CommentListResult } from '../model/CommentListResult';
 export class VoteResult {
   success: boolean = false;
   alreadyVoted: boolean = false;
+  ownTopic: boolean = false;
 }
 
 export const BASE_URL: string = 'https://www.guozaoke.com';
@@ -580,6 +581,10 @@ export class GuozaokeService {
       }
       if (/already_voted/i.test(response)) {
         result.alreadyVoted = true;
+        return result;
+      }
+      if (/(?:cannot[_-](?:like|vote)[_-]own[_-]topic|不能喜欢自己的主题|不能给自己的主题点赞)/i.test(response)) {
+        result.ownTopic = true;
         return result;
       }
       // Vote endpoints return JSON on H5. A non-empty response is not enough:
