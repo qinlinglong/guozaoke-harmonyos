@@ -440,9 +440,16 @@ export class GuozaokeService {
     detail.viewCount = numberMatch(visible, /(\d[\d,]*)\s*次点击/i);
     detail.favoriteCount = numberMatch(visible, /(\d[\d,]*)\s*人收藏/i);
     detail.voteCount = numberMatch(visible, /(\d[\d,]*)\s*人赞/i);
-    const topicVote = html.match(/<a[^>]*class=["'][^"']*(?:J_topicVote|topic-vote)[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/i);
-    detail.voteUrl = topicVote && topicVote.length > 1 ? topicVote[1] : '';
-    detail.voted = /(?:已赞|取消赞|unvote)/i.test(visible);
+    // Attribute order changed after the H5 redesign; inspect the complete
+    // vote anchor instead of requiring class before href.
+    const topicVote = html.match(/<a[^>]*class=["'][^"']*(?:J_topicVote|topic-vote)[^"']*["'][^>]*>/i);
+    if (topicVote) {
+      const voteHref = topicVote[0].match(/(?:href|data-href)=["']([^"']+)["']/i);
+      detail.voteUrl = voteHref && voteHref.length > 1 ? voteHref[1] : '';
+      detail.voted = /(?:已赞|取消赞|unvote)/i.test(topicVote[0]) || /data-type=["'](?:unvote|voted)["']/i.test(topicVote[0]);
+    } else {
+      detail.voted = /(?:已赞|取消赞|unvote)/i.test(visible);
+    }
     // Keep the structural markup here. TopicPage converts it to readable
     // native text while preserving paragraphs, lists and image placeholders.
     // Running this through firstMatch() used to remove tags too early and
@@ -549,7 +556,12 @@ export class GuozaokeService {
   static async vote(url: string): Promise<boolean> {
     try {
       const path = url.startsWith(BASE_URL) ? url.substring(BASE_URL.length) : url;
-      return (await GuozaokeService.get(path)).length > 0;
+      const response = await GuozaokeService.get(path);
+      if (response.length === 0) return false;
+      // Vote endpoints return JSON on H5. A non-empty response is not enough:
+      // already-voted and rejected requests also contain a response body.
+      if (/(?:"|')success(?:"|')\s*:\s*0|already_voted|vote_failed|forbidden/i.test(response)) return false;
+      return true;
     } catch (_) { return false; }
   }
 
