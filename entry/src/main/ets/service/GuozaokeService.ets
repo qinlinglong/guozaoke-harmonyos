@@ -442,9 +442,9 @@ export class GuozaokeService {
     detail.voteCount = numberMatch(visible, /(\d[\d,]*)\s*人赞/i);
     // Attribute order changed after the H5 redesign; inspect the complete
     // vote anchor instead of requiring class before href.
-    const topicVote = html.match(/<a[^>]*class=["'][^"']*(?:J_topicVote|topic-vote)[^"']*["'][^>]*>/i);
+    const topicVote = html.match(/<(?:a|button)[^>]*class=["'][^"']*(?:J_topicVote|topic-vote)[^"']*["'][^>]*>/i);
     if (topicVote) {
-      const voteHref = topicVote[0].match(/(?:href|data-href)=["']([^"']+)["']/i);
+      const voteHref = topicVote[0].match(/(?:href|data-href|data-url)=["']([^"']+)["']/i);
       detail.voteUrl = voteHref && voteHref.length > 1 ? voteHref[1] : '';
       detail.voted = /(?:已赞|取消赞|unvote)/i.test(topicVote[0]) ||
         /data-(?:type|voted|status)=["'](?:unvote|voted|1|true)["']/i.test(topicVote[0]) ||
