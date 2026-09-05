@@ -355,6 +355,9 @@ struct Index {
             Scroll() {
               Column() {
                 this.drawerItem('ic_person', GuozaokeService.isLoggedIn() ? '个人中心' : '登录', () => this.openFromDrawer(GuozaokeService.isLoggedIn() ? 'pages/ProfilePage' : 'pages/LoginPage'))
+                if (GuozaokeService.isLoggedIn()) {
+                  this.drawerItem('ic_settings_menu', '设置', () => this.openFromDrawer('pages/SettingsPage'))
+                }
                 this.drawerItem('ic_favorite', '我的收藏', () => this.openFromDrawer('pages/TopicListPage', { kind: 'favorites' }))
                 this.drawerItem('ic_nodes_menu', '节点', () => this.openFromDrawer('pages/NodesPage'))
                 this.drawerItem('ic_info', '关于', () => this.openFromDrawer('pages/AboutPage'))

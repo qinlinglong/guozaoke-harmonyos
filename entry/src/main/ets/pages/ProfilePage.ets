@@ -149,10 +149,6 @@ struct ProfilePage {
         Text('‹').fontSize(32).fontColor(Color.White).onClick(() => setTimeout(() => router.back(), 80))
         Text('个人中心').fontSize(20).fontColor(Color.White).fontWeight(FontWeight.Bold).margin({ left: 18 })
         Blank()
-        if (this.self) {
-          Image($r('app.media.ic_settings_menu')).width(22).height(22).fillColor(Color.White).margin({ right: 18 })
-            .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/SettingsPage' }), 80))
-        }
       }.width('100%').height(60).flexShrink(0).padding({ left: 16 }).backgroundColor(this.themeColor)
       this.profileBanner()
       Scroll() {
