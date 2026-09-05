@@ -426,11 +426,16 @@ export class GuozaokeService {
       item.floor = firstMatch(block, /class=["'][^"']*floor[^"']*["'][^>]*>([\s\S]*?)<\/span>/i) || `#${index + 1}`;
       const avatarTag = block.match(/<img[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
       item.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
-      const vote = block.match(/<a[^>]*class=["'][^"']*J_replyVote[^"']*["'][^>]*href=["']([^"']*)["'][^>]*data-count=["'](\d+)["']/i);
+      // Attribute order changed in the redesigned markup (data-count may
+      // precede href), so parse the whole vote anchor and read each attribute
+      // independently. The query reply_id is the authoritative global ID.
+      const vote = block.match(/<a[^>]*class=["'][^"']*J_replyVote[^"']*["'][^>]*>/i);
       if (vote) {
-        item.voteUrl = vote[1];
-        item.voteCount = Number(vote[2]);
-        const replyId = vote[1].match(/[?&]reply_id=(\d+)/i);
+        const voteHref = vote[0].match(/(?:href|data-href)=["']([^"']*)["']/i);
+        const voteCount = vote[0].match(/data-count=["'](\d+)["']/i);
+        item.voteUrl = voteHref && voteHref.length > 1 ? voteHref[1] : '';
+        item.voteCount = voteCount && voteCount.length > 1 ? Number(voteCount[1]) : 0;
+        const replyId = item.voteUrl.match(/[?&]reply_id=(\d+)/i);
         if (replyId) item.id = replyId[1];
       }
       // The redesigned site labels this action simply “编辑”. Its URL holds
