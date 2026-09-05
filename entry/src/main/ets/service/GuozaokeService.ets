@@ -1,4 +1,5 @@
 import { http } from '@kit.NetworkKit';
+import { fileIo } from '@kit.CoreFileKit';
 import { webview } from '@kit.ArkWeb';
 import { Topic } from '../model/Topic';
 import { CommentItem } from '../model/CommentItem';
@@ -6,6 +7,9 @@ import { NodeItem } from '../model/NodeItem';
 import { UserProfile } from '../model/UserProfile';
 import { NotificationItem } from '../model/NotificationItem';
 import { TopicDetailData } from '../model/TopicDetailData';
+import { TopicListResult } from '../model/TopicListResult';
+import { NotificationListResult } from '../model/NotificationListResult';
+import { CommentListResult } from '../model/CommentListResult';
 
 export const BASE_URL: string = 'https://www.guozaoke.com';
 export const LOGIN_URL: string = `${BASE_URL}/login`;
@@ -23,6 +27,17 @@ function firstMatch(source: string, expression: RegExp): string {
 function firstRawMatch(source: string, expression: RegExp): string {
   const matched: RegExpMatchArray | null = source.match(expression);
   return matched && matched.length > 1 ? matched[1].trim() : '';
+}
+
+function numberMatch(source: string, expression: RegExp): number {
+  const value: string = firstMatch(source, expression).replace(/[^0-9]/g, '');
+  return value.length > 0 ? Number(value) : 0;
+}
+
+function asciiBytes(value: string): Uint8Array {
+  const result = new Uint8Array(value.length);
+  for (let index = 0; index < value.length; index += 1) result[index] = value.charCodeAt(index) & 0xFF;
+  return result;
 }
 
 function normalizeImageUrl(value: string): string {
@@ -44,19 +59,71 @@ function avatarFromHtml(source: string): string {
   return normalizeImageUrl(image[1]);
 }
 
+function pagePath(basePath: string, page: number): string {
+  if (page <= 1) return basePath;
+  return `${basePath}${basePath.indexOf('?') >= 0 ? '&' : '?'}p=${page}`;
+}
+
+function hasNextPage(html: string, page: number): boolean {
+  const nextPage: number = page + 1;
+  if (new RegExp(`(?:[?&]|&amp;)(?:p|page)=${nextPage}(?:[&"'#]|&amp;|$)`, 'i').test(html)) return true;
+
+  const pagination = html.match(/<(?:ul|nav|div)[^>]*class=["'][^"']*pagination[^"']*["'][^>]*>[\s\S]*?<\/(?:ul|nav|div)>/i);
+  if (!pagination) return false;
+  const nextItem = pagination[0].match(/<(?:li|a)[^>]*>[\s\S]*?(?:下一页|下页|next|›|»)[\s\S]*?<\/(?:li|a)>/i);
+  return !!nextItem && !/class=["'][^"']*(?:disabled|is-disabled)[^"']*["']|aria-disabled=["']true["']/i.test(nextItem[0]);
+}
+
+function topicPageFromHtml(html: string, page: number): TopicListResult {
+  const result: TopicListResult = new TopicListResult();
+  result.topics = GuozaokeService.parseTopics(html);
+  result.hasMore = result.topics.length > 0 && hasNextPage(html, page);
+  return result;
+}
+
+function appendNode(result: Array<NodeItem>, codeValue: string, titleValue: string): void {
+  let decodedCode: string = codeValue;
+  try { decodedCode = decodeURIComponent(codeValue); } catch (_) { }
+  const code: string = decodedCode.replace(/[^A-Za-z0-9_-]/g, '');
+  const title: string = decodeHtml(titleValue).replace(/\s+/g, ' ').trim();
+  if (code.length === 0 || title.length === 0 || result.some((node: NodeItem) => node.code === code)) return;
+  const item: NodeItem = new NodeItem();
+  item.code = code;
+  item.title = title;
+  result.push(item);
+}
+
+function parseNodes(html: string, result: Array<NodeItem>): void {
+  const links: Array<string> = html.match(/<a\b[^>]*href=["'][^"']*(?:\/node\/|\/t\/create\/)[^"']+["'][^>]*>[\s\S]*?<\/a>/gi) ?? [];
+  links.forEach((link: string) => {
+    const target = link.match(/href=["'][^"']*(?:\/node\/|\/t\/create\/)([A-Za-z0-9_-]+)(?:[?#][^"']*)?["']/i);
+    const title = link.match(/>([\s\S]*?)<\/a>/i);
+    if (target && title) appendNode(result, target[1], title[1]);
+  });
+
+  const options: Array<string> = html.match(/<option\b[^>]*value=["'][^"']+["'][^>]*>[\s\S]*?<\/option>/gi) ?? [];
+  options.forEach((option: string) => {
+    const value = option.match(/value=["']([^"']+)["']/i);
+    const title = option.match(/>([\s\S]*?)<\/option>/i);
+    if (!value || !title) return;
+    const code = value[1].match(/(?:\/node\/|\/t\/create\/)?([A-Za-z0-9_-]+)(?:[?#].*)?$/i);
+    if (code) appendNode(result, code[1], title[1]);
+  });
+}
+
 export class GuozaokeService {
   static parseTopics(html: string): Array<Topic> {
-    const cards: Array<string> = html.match(/<div[^>]*class="[^"]*topic-item[^"]*"[\s\S]*?(?=<div[^>]*class="[^"]*topic-item|<\/main>|<\/body>)/g) ?? [];
+    const cards: Array<string> = html.match(/<div[^>]*class=["'][^"']*topic-item[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*topic-item|<\/main>|<\/body>)/gi) ?? [];
     const result: Array<Topic> = [];
     cards.forEach((card: string) => {
       const topic: Topic = new Topic();
-      topic.id = firstMatch(card, /href="\/t\/(\d+)/);
-      topic.title = firstMatch(card, /<h3[^>]*class="[^"]*title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      topic.author = firstMatch(card, /class="[^"]*username[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
-      topic.node = firstMatch(card, /class="[^"]*node[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/);
+      topic.id = firstMatch(card, /href=["']\/t\/(\d+)/i);
+      topic.title = firstMatch(card, /<h3[^>]*class=["'][^"']*title[^"']*["'][^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
+      topic.author = firstMatch(card, /class=["'][^"']*username[^"']*["'][\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
+      topic.node = firstMatch(card, /class=["'][^"']*node[^"']*["'][\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i);
       const avatarTag = card.match(/<(?:img|image)\b[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
       topic.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : avatarFromHtml(card);
-      topic.replies = firstMatch(card, /class="[^"]*count[^"]*"[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/) || '0';
+      topic.replies = firstMatch(card, /class=["'][^"']*count[^"']*["'][\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i) || '0';
       if (topic.id.length > 0 && topic.title.length > 0) result.push(topic);
     });
     return result;
@@ -105,22 +172,66 @@ export class GuozaokeService {
     }
   }
 
-  static async topics(tab: string = ''): Promise<Array<Topic>> {
-    const html: string = await GuozaokeService.get(tab.length > 0 ? `/?tab=${tab}` : '/');
-    return GuozaokeService.parseTopics(html);
+  static async topicPage(tab: string = '', page: number = 1): Promise<TopicListResult> {
+    const basePath: string = tab.length > 0 ? `/?tab=${encodeURIComponent(tab)}` : '/';
+    return topicPageFromHtml(await GuozaokeService.get(pagePath(basePath, page)), page);
   }
 
-  static async userTopics(kind: string): Promise<Array<Topic>> {
+  static async topics(tab: string = '', page: number = 1): Promise<Array<Topic>> {
+    return (await GuozaokeService.topicPage(tab, page)).topics;
+  }
+
+  static async searchTopics(keyword: string, page: number = 1): Promise<TopicListResult> {
+    const value = keyword.trim();
+    const empty = new TopicListResult();
+    if (value.length === 0) return empty;
+    const encoded = encodeURIComponent(value);
+    // Keep the request compatible with both the redesigned H5 search form
+    // and the legacy route still used by some cached pages.
+    const paths: Array<string> = [
+      `/search?q=${encoded}`,
+      `/search?keyword=${encoded}`,
+      `/search?query=${encoded}`,
+      `/?q=${encoded}`
+    ];
+    for (const path of paths) {
+      try {
+        const html = await GuozaokeService.get(pagePath(path, page));
+        // Some deployments redirect an unknown search route to the home page.
+        // Never expose that page as a false-positive search result: retain only
+        // cards whose title, author, node, or excerpt contains the keyword.
+        const cards: Array<string> = html.match(/<div[^>]*class=["'][^"']*topic-item[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*topic-item|<\/main>|<\/body>)/gi) ?? [];
+        const needle = value.toLocaleLowerCase();
+        const matchedCards = cards.filter((card: string) => decodeHtml(card).toLocaleLowerCase().indexOf(needle) >= 0);
+        if (matchedCards.length > 0) {
+          const result = topicPageFromHtml(matchedCards.join('\n'), page);
+          if (result.topics.length > 0) return result;
+        }
+      } catch (_) { }
+    }
+    return empty;
+  }
+
+  static async userTopicPage(kind: string, page: number = 1): Promise<TopicListResult> {
     const profile = await GuozaokeService.selfProfileUrl();
     const match = profile.match(/\/u\/([A-Za-z0-9_-]+)/);
-    if (!match) return [];
-    return GuozaokeService.userTopicsFor(match[1], kind);
+    if (!match) return new TopicListResult();
+    return GuozaokeService.userTopicPageFor(match[1], kind, page);
   }
 
-  static async userTopicsFor(username: string, kind: string): Promise<Array<Topic>> {
+  static async userTopicPageFor(username: string, kind: string, page: number = 1): Promise<TopicListResult> {
     const safeName = username.replace(/[^A-Za-z0-9_-]/g, '');
-    if (safeName.length === 0) return [];
-    return GuozaokeService.parseTopics(await GuozaokeService.get(`/u/${safeName}/${kind}`));
+    if (safeName.length === 0) return new TopicListResult();
+    const html: string = await GuozaokeService.get(pagePath(`/u/${safeName}/${kind}`, page));
+    return topicPageFromHtml(html, page);
+  }
+
+  static async userTopics(kind: string, page: number = 1): Promise<Array<Topic>> {
+    return (await GuozaokeService.userTopicPage(kind, page)).topics;
+  }
+
+  static async userTopicsFor(username: string, kind: string, page: number = 1): Promise<Array<Topic>> {
+    return (await GuozaokeService.userTopicPageFor(username, kind, page)).topics;
   }
 
   static async selfProfileUrl(): Promise<string> {
@@ -215,6 +326,16 @@ export class GuozaokeService {
     }
     detail.createdTime = firstMatch(header,
       /<span[^>]*class=["'][^"']*(?:created-time|last-reply-time)[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+    const editLink = html.match(/<a[^>]*href=["']([^"']*(?:\/t\/\d+\/edit|\/t\/edit\/\d+)[^"']*)["'][^>]*>[\s\S]*?编辑主题[\s\S]*?<\/a>/i);
+    detail.editUrl = editLink && editLink.length > 1 ? editLink[1] : '';
+    const visible = decodeHtml(html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, ''))
+      .replace(/\s+/g, ' ');
+    detail.viewCount = numberMatch(visible, /(\d[\d,]*)\s*次点击/i);
+    detail.favoriteCount = numberMatch(visible, /(\d[\d,]*)\s*人收藏/i);
+    detail.voteCount = numberMatch(visible, /(\d[\d,]*)\s*人赞/i);
+    const topicVote = html.match(/<a[^>]*class=["'][^"']*(?:J_topicVote|topic-vote)[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>/i);
+    detail.voteUrl = topicVote && topicVote.length > 1 ? topicVote[1] : '';
+    detail.voted = /(?:已赞|取消赞|unvote)/i.test(visible);
     // Keep the structural markup here. TopicPage converts it to readable
     // native text while preserving paragraphs, lists and image placeholders.
     // Running this through firstMatch() used to remove tags too early and
@@ -230,13 +351,13 @@ export class GuozaokeService {
     return detail;
   }
 
-  static async topicComments(id: string): Promise<Array<CommentItem>> {
+  static async topicCommentPage(id: string, page: number = 1): Promise<CommentListResult> {
     // The Android client requests the first paginated detail page for comments;
     // the redesigned site omits the reply list from the bare /t/:id response.
-    let html: string = await GuozaokeService.get(`/t/${id}?p=1`);
+    let html: string = await GuozaokeService.get(`/t/${id}?p=${page}`);
     // Some CDN edges serve the anti-bot shell for the paginated URL only.
     // Retry the canonical detail response before presenting a false empty list.
-    if (!/(reply-item|topic-reply|J_replyVote|comment-content|reply-content)/i.test(html)) {
+    if (page === 1 && !/(reply-item|topic-reply|J_replyVote|comment-content|reply-content)/i.test(html)) {
       html = await GuozaokeService.get(`/t/${id}`);
     }
     const result: Array<CommentItem> = [];
@@ -270,7 +391,14 @@ export class GuozaokeService {
         if (decodeHtml(reply).replace(/\s+/g, ' ').trim().length > 0) result.push(item);
       });
     }
-    return result;
+    const pageResult: CommentListResult = new CommentListResult();
+    pageResult.items = result;
+    pageResult.hasMore = result.length > 0 && hasNextPage(html, page);
+    return pageResult;
+  }
+
+  static async topicComments(id: string, page: number = 1): Promise<Array<CommentItem>> {
+    return (await GuozaokeService.topicCommentPage(id, page)).items;
   }
 
   static async topicFavoriteState(id: string): Promise<boolean> {
@@ -312,6 +440,56 @@ export class GuozaokeService {
     return response.length > 0;
   }
 
+  static async editTopic(id: string, title: string, content: string): Promise<boolean> {
+    const safeId = id.replace(/[^0-9]/g, '');
+    if (safeId.length === 0) return false;
+    const token = GuozaokeService.xsrf();
+    const form = `tid=${encodeURIComponent(safeId)}&title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
+    const response = await GuozaokeService.post(`/t/${safeId}/edit`, form);
+    return response.length > 0 && !/(找不到|不存在|错误|失败|forbidden|login)/i.test(response);
+  }
+
+  static async uploadImage(uri: string, apiKey: string): Promise<string> {
+    if (uri.length === 0 || apiKey.trim().length === 0) return '';
+    const boundary = `----GuozaokeHarmony${Date.now()}`;
+    let file: fileIo.File | undefined;
+    try {
+      file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
+      const size = fileIo.statSync(file.fd).size;
+      if (size <= 0 || size > 15 * 1024 * 1024) return '';
+      const bytes = new ArrayBuffer(size);
+      fileIo.readSync(file.fd, bytes);
+      const head = asciiBytes(`--${boundary}\r\nContent-Disposition: form-data; name="smfile"; filename="guozaoke-${Date.now()}.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`);
+      const tail = asciiBytes(`\r\n--${boundary}--\r\n`);
+      const body = new Uint8Array(head.byteLength + bytes.byteLength + tail.byteLength);
+      body.set(head, 0);
+      body.set(new Uint8Array(bytes), head.byteLength);
+      body.set(tail, head.byteLength + bytes.byteLength);
+      const request: http.HttpRequest = http.createHttp();
+      try {
+        const response: http.HttpResponse = await request.request('https://sm.ms/api/v2/upload', {
+          method: http.RequestMethod.POST,
+          header: {
+            'Authorization': apiKey.trim(),
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Accept': 'application/json'
+          },
+          extraData: body.buffer,
+          connectTimeout: 12000,
+          readTimeout: 120000,
+          expectDataType: http.HttpDataType.STRING
+        });
+        const text: string = response.result as string;
+        const url = text.match(/"url"\s*:\s*"(https?:\\?\/\\?\/[^"\\]+)"/i);
+        return url && url.length > 1 ? url[1].replace(/\\\//g, '/') : '';
+      } finally { request.destroy(); }
+    } catch (_) {
+      return '';
+    } finally {
+      if (file) { try { fileIo.closeSync(file); } catch (_) {} }
+    }
+  }
+
   static xsrf(): string {
     const item = GuozaokeService.cookie().split(';').find((part: string) => part.trim().startsWith('_xsrf='));
     if (!item) return '';
@@ -334,25 +512,29 @@ export class GuozaokeService {
   }
 
   static async nodes(): Promise<Array<NodeItem>> {
-    const html: string = await GuozaokeService.get('/nodes');
     const result: Array<NodeItem> = [];
-    const links: Array<string> = html.match(/<a[^>]*href="\/node\/[^\"]+"[^>]*>[\s\S]*?<\/a>/g) ?? [];
-    links.forEach((link: string) => {
-      const item: NodeItem = new NodeItem();
-      item.title = firstMatch(link, />([\s\S]*?)<\/a>/);
-      item.code = firstMatch(link, /href="\/node\/([^\"?#]+)(?:[?#][^\"]*)?"/);
-      if (item.title.length > 0 && item.code.length > 0 && !result.some((value: NodeItem) => value.code === item.code)) result.push(item);
-    });
+    parseNodes(await GuozaokeService.get('/nodes'), result);
+    // The authenticated create page may expose posting destinations that are
+    // hidden from the public node cloud. Merge both live catalogues.
+    if (GuozaokeService.isLoggedIn()) {
+      try { parseNodes(await GuozaokeService.get('/t/create'), result); } catch (_) { }
+    }
     return result;
   }
 
-  static async nodeTopics(code: string): Promise<Array<Topic>> {
+  static async nodeTopicPage(code: string, page: number = 1): Promise<TopicListResult> {
     const safeCode = code.replace(/[^A-Za-z0-9_-]/g, '');
-    return safeCode.length > 0 ? GuozaokeService.parseTopics(await GuozaokeService.get(`/node/${safeCode}`)) : [];
+    if (safeCode.length === 0) return new TopicListResult();
+    const html: string = await GuozaokeService.get(pagePath(`/node/${safeCode}`, page));
+    return topicPageFromHtml(html, page);
   }
 
-  static async notifications(): Promise<Array<NotificationItem>> {
-    const html: string = await GuozaokeService.get('/notifications');
+  static async nodeTopics(code: string, page: number = 1): Promise<Array<Topic>> {
+    return (await GuozaokeService.nodeTopicPage(code, page)).topics;
+  }
+
+  static async notificationPage(page: number = 1): Promise<NotificationListResult> {
+    const html: string = await GuozaokeService.get(pagePath('/notifications', page));
     const result: Array<NotificationItem> = [];
     const blocks: Array<string> = html.match(/<div[^>]*class=["'][^"']*notification-item[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*notification-item|<ul[^>]*class=["'][^"']*pagination|<\/main>|<\/body>)/gi) ?? [];
     blocks.forEach((block: string) => {
@@ -372,6 +554,13 @@ export class GuozaokeService {
       item.content = firstMatch(block, /<div[^>]*class=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
       if (item.author.length > 0 && item.topicId.length > 0) result.push(item);
     });
-    return result;
+    const pageResult: NotificationListResult = new NotificationListResult();
+    pageResult.items = result;
+    pageResult.hasMore = result.length > 0 && hasNextPage(html, page);
+    return pageResult;
+  }
+
+  static async notifications(page: number = 1): Promise<Array<NotificationItem>> {
+    return (await GuozaokeService.notificationPage(page)).items;
   }
 }

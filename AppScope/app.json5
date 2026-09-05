@@ -2,8 +2,8 @@
   "app": {
     "bundleName": "io.github.qinlinglong.guozaoke",
     "vendor": "example",
-  "versionCode": 1000000,
-  "versionName": "1.0.0",
+  "versionCode": 1000001,
+  "versionName": "1.0.1",
     "icon": "$media:pixel_icon",
     "label": "$string:app_name"
   }

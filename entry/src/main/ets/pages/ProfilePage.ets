@@ -5,6 +5,9 @@ import { UserProfile } from '../model/UserProfile';
 @Entry
 @Component
 struct ProfilePage {
+  @StorageLink('themeColor') themeColor: string = '#51A775';
+  @StorageLink('safeAreaTop') safeAreaTop: number = 0;
+  @StorageLink('safeAreaBottom') safeAreaBottom: number = 0;
   @State avatar: string = '';
   @State username: string = '';
   @State number: string = '';
@@ -67,26 +70,35 @@ struct ProfilePage {
     this.actionBusy = false;
   }
 
+  @Builder
+  profileBanner() {
+    Stack() {
+      Row().width('100%').height(112).backgroundColor(this.themeColor)
+      Stack() {
+        Image($r('app.media.avatar_placeholder')).width(72).height(72).borderRadius(36).objectFit(ImageFit.Cover)
+          .border({ width: 3, color: Color.White })
+        if (this.avatar.length > 0) {
+          Image(this.avatar).width(72).height(72).borderRadius(36).objectFit(ImageFit.Cover)
+            .border({ width: 3, color: Color.White })
+        }
+      }.position({ x: 16, y: 56 })
+    }.width('100%').height(140)
+  }
+
   build() {
     Column() {
       Row() {
-        Text('‹').fontSize(32).fontColor('#258DF5').onClick(() => router.back())
-        Text('个人中心').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 })
+        Text('‹').fontSize(32).fontColor(Color.White).onClick(() => setTimeout(() => router.back(), 80))
+        Text('个人中心').fontSize(20).fontColor(Color.White).fontWeight(FontWeight.Bold).margin({ left: 18 })
         Blank()
         if (this.self) {
-          Image($r('app.media.ic_settings_menu')).width(22).height(22).margin({ right: 18 })
-            .onClick(() => router.pushUrl({ url: 'pages/SettingsPage' }))
+          Image($r('app.media.ic_settings_menu')).width(22).height(22).fillColor(Color.White).margin({ right: 18 })
+            .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/SettingsPage' }), 80))
         }
-      }.width('100%').height(60).flexShrink(0).padding({ left: 16 }).backgroundColor(Color.White)
+      }.width('100%').height(60).flexShrink(0).padding({ left: 16 }).backgroundColor(this.themeColor)
+      this.profileBanner()
       Scroll() {
         Column() {
-          Stack() {
-            Image($r('app.media.background')).width('100%').height(128).objectFit(ImageFit.Cover)
-            Stack() {
-              Image($r('app.media.avatar_placeholder')).width(72).height(72).borderRadius(36).objectFit(ImageFit.Cover)
-              if (this.avatar.length > 0) { Image(this.avatar).width(72).height(72).borderRadius(36).objectFit(ImageFit.Cover) }
-            }.position({ x: 16, y: 92 })
-          }.width('100%').height(164)
           Column() {
             Text(this.username.length > 0 ? this.username : '过早客用户').fontSize(22).fontColor('#444444')
             Text(this.number.length > 0 ? `${this.number}${this.since.length > 0 ? ` · ${this.since}` : ''}` : (this.self ? '已登录 · guozaoke.com' : 'guozaoke.com'))
@@ -96,7 +108,7 @@ struct ProfilePage {
             LoadingProgress().width(24).height(24).margin({ bottom: 16 })
           }
           if (this.status.length > 0) {
-            Text(this.status).fontSize(13).fontColor(this.status.indexOf('失败') >= 0 ? '#D93025' : '#258DF5')
+            Text(this.status).fontSize(13).fontColor(this.status.indexOf('失败') >= 0 ? '#D93025' : this.themeColor)
               .margin({ left: 16, right: 16, bottom: 10 }).onClick(() => {
                 if (this.status.indexOf('失败') >= 0) { this.loading = true; this.status = ''; this.load(); }
               })
@@ -108,10 +120,10 @@ struct ProfilePage {
             Row() { Text('已屏蔽用户').fontSize(16).fontColor('#444444'); Blank(); Text('›').fontSize(24).fontColor('#BBBBBB'); }
               .width('100%').height(56).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
               .border({ width: { bottom: 1 }, color: '#E6E6E6' })
-              .onClick(() => router.pushUrl({ url: 'pages/BlockedUsersPage' }))
+              .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/BlockedUsersPage' }), 80))
           }
           if (!this.self && GuozaokeService.isLoggedIn()) {
-            Text(this.actionBusy ? '处理中…' : (this.followed ? '取消关注' : '+ 关注')).fontSize(16).fontColor('#258DF5')
+            Text(this.actionBusy ? '处理中…' : (this.followed ? '取消关注' : '+ 关注')).fontSize(16).fontColor(this.themeColor)
               .width('100%').height(56).textAlign(TextAlign.Center).margin({ top: 12 }).backgroundColor(Color.White)
               .onClick(() => this.follow())
             Text(this.actionBusy ? '处理中…' : (this.blocked ? '解除屏蔽' : '屏蔽此账号')).fontSize(16).fontColor('#7B8794')
@@ -132,8 +144,9 @@ struct ProfilePage {
               }))
           }
         }.width('100%').constraintSize({ minHeight: '100%' }).justifyContent(FlexAlign.Start).backgroundColor('#F5F5F5')
-      }.layoutWeight(1).width('100%')
-    }.width('100%').height('100%').backgroundColor('#F5F5F5')
+      }.layoutWeight(1).width('100%').padding(0).margin(0).backgroundColor(this.themeColor)
+    }.width('100%').height('100%').padding({ top: this.safeAreaTop, bottom: this.safeAreaBottom }).backgroundColor(this.themeColor)
+      .hitTestBehavior(HitTestMode.BLOCK_HIERARCHY)
   }
 
   @Builder
@@ -144,6 +157,6 @@ struct ProfilePage {
       Text('›').fontSize(24).fontColor('#BBBBBB')
     }.width('100%').height(56).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
       .border({ width: { bottom: 1 }, color: '#E6E6E6' })
-      .onClick(() => router.pushUrl({ url: 'pages/TopicListPage', params: { kind, username: this.username } }))
+      .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/TopicListPage', params: { kind, username: this.username } }), 80))
   }
 }

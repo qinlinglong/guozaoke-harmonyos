@@ -1,8 +1,12 @@
 import { router } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 import { pasteboard } from '@kit.BasicServicesKit';
+import { picker } from '@kit.CoreFileKit';
 import { GuozaokeService } from '../service/GuozaokeService';
 import { CommentItem } from '../model/CommentItem';
 import { TopicDetailData } from '../model/TopicDetailData';
+import { ContentPart } from '../model/ContentPart';
+import { CommentListResult } from '../model/CommentListResult';
 
 function htmlText(value: string, showImagePlaceholder: boolean = true): string {
   return value.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -12,12 +16,59 @@ function htmlText(value: string, showImagePlaceholder: boolean = true): string {
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;|&#x27;/gi, "'").replace(/&quot;/g, '"')
     .replace(/&#(\d+);/g, (_: string, code: string) => String.fromCharCode(Number(code)))
     .replace(/[ \t]+/g, ' ').replace(/\n[ \t]+/g, '\n').replace(/\n{3,}/g, '\n\n')
-    .replace(/(^|\n)(加入收藏|新浪微博|分享到微信|❤️?赞|\d+ 次点击|\d+ 人赞|\d+ 人收藏)(?=\n|$)/g, '$1').trim();
+    .replace(/(^|\n)(加入收藏|编辑主题|新浪微博|分享到微信|❤️?赞|\d+ 次点击|\d+ 人赞|\d+ 人收藏)(?=\n|$)/g, '$1').trim();
+}
+
+function appendContentPart(result: Array<ContentPart>, text: string, bold: boolean = false, url: string = ''): void {
+  if (text.length === 0) return;
+  const part: ContentPart = new ContentPart();
+  part.text = text;
+  part.bold = bold;
+  part.url = url;
+  result.push(part);
+}
+
+function contentParts(value: string): Array<ContentPart> {
+  const markdown = value
+    .replace(/<(?:strong|b)\b[^>]*>/gi, '**').replace(/<\/(?:strong|b)>/gi, '**')
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      (_all: string, url: string, label: string) => {
+        const cleanLabel: string = htmlText(label);
+        if (cleanLabel.length === 0 || /^(?:#|\/favorite|\/unfavorite|\/vote)/i.test(url) || cleanLabel === '编辑主题') return '';
+        return `[${cleanLabel}](${url})`;
+      });
+  // Images are rendered as native Image components by the topic page. Do not
+  // leave the parser's textual "[图片]" placeholder beside the real image.
+  const source: string = htmlText(markdown, false);
+  const result: Array<ContentPart> = [];
+  const token = /(\*\*[\s\S]+?\*\*|\[[^\]]+\]\([^\s)]+\)|https?:\/\/[^\s<>()]+)/g;
+  let cursor: number = 0;
+  let matched: RegExpExecArray | null = token.exec(source);
+  while (matched) {
+    appendContentPart(result, source.substring(cursor, matched.index));
+    const raw: string = matched[0];
+    if (raw.startsWith('**') && raw.endsWith('**')) {
+      appendContentPart(result, raw.substring(2, raw.length - 2), true);
+    } else if (raw.startsWith('[')) {
+      const link = raw.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (link) appendContentPart(result, link[1], false, link[2]);
+    } else {
+      appendContentPart(result, raw, false, raw);
+    }
+    cursor = matched.index + raw.length;
+    matched = token.exec(source);
+  }
+  appendContentPart(result, source.substring(cursor));
+  if (result.length === 0) appendContentPart(result, source);
+  return result;
 }
 
 @Entry
 @Component
 struct TopicPage {
+  @StorageLink('themeColor') themeColor: string = '#51A775';
+  @StorageLink('safeAreaTop') safeAreaTop: number = 0;
+  @StorageLink('safeAreaBottom') safeAreaBottom: number = 0;
   @State title: string = '主题详情';
   @State topicId: string = '';
   @State body: string = '加载中…';
@@ -34,11 +85,22 @@ struct TopicPage {
   @State nodeTitle: string = '';
   @State nodeCode: string = '';
   @State createdTime: string = '';
+  @State canEdit: boolean = false;
+  @State viewCount: number = 0;
+  @State favoriteCount: number = 0;
+  @State voteCount: number = 0;
+  @State topicVoteUrl: string = '';
+  @State topicVoted: boolean = false;
   @State sending: boolean = false;
   @State favoriteBusy: boolean = false;
   @State images: Array<string> = [];
   @State imageHeights: Array<number> = [];
+  @State commentPage: number = 1;
+  @State commentsHasMore: boolean = false;
+  @State commentsLoadingMore: boolean = false;
   @StorageLink('commentsOrderDesc') commentsOrderDesc: boolean = false;
+  @StorageLink('imageBedApiKey') imageBedApiKey: string = '';
+  @State uploadingImage: boolean = false;
 
   aboutToAppear(): void {
     try {
@@ -63,11 +125,11 @@ struct TopicPage {
     try {
       const detail = await Promise.all([
         GuozaokeService.topicDetail(this.topicId),
-        GuozaokeService.topicComments(this.topicId),
+        GuozaokeService.topicCommentPage(this.topicId, 1),
         GuozaokeService.topicFavoriteState(this.topicId)
       ]);
       const topic: TopicDetailData = detail[0];
-      this.body = htmlText(topic.content, false);
+      this.body = topic.content;
       this.author = topic.author;
       this.avatar = topic.avatar;
       this.nodeTitle = topic.nodeTitle;
@@ -75,22 +137,36 @@ struct TopicPage {
       this.createdTime = topic.createdTime;
       this.images = topic.images;
       this.imageHeights = topic.images.map(() => 220);
-      this.comments = this.commentsOrderDesc ? detail[1].slice().reverse() : detail[1];
+      this.viewCount = topic.viewCount;
+      this.favoriteCount = topic.favoriteCount;
+      this.voteCount = topic.voteCount;
+      this.topicVoteUrl = topic.voteUrl;
+      this.topicVoted = topic.voted;
+      const selfName = await GuozaokeService.selfUsername();
+      this.canEdit = this.author.length > 0 && selfName.length > 0 && this.author === selfName;
+      const commentResult: CommentListResult = detail[1];
+      this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
+      this.commentPage = 1;
+      this.commentsHasMore = commentResult.hasMore;
       this.favorite = detail[2];
     }
     catch (_) { this.body = '加载失败，请稍后重试'; }
     this.loading = false;
   }
 
-  private notify(message: string): void {
+  private notify(message: string, duration: number = 2200): void {
     this.status = message;
     setTimeout(() => {
       if (this.status === message) this.status = '';
-    }, 2200);
+    }, duration);
   }
 
   private async toggleFavorite(): Promise<void> {
     if (this.favoriteBusy) return;
+    if (this.canEdit) {
+      this.notify('自己发的主题不能收藏');
+      return;
+    }
     if (!GuozaokeService.isLoggedIn()) {
       this.notify('请先登录');
       return;
@@ -106,6 +182,27 @@ struct TopicPage {
     this.favoriteBusy = false;
   }
 
+  private async voteTopic(): Promise<void> {
+    if (this.topicVoted || this.topicVoteUrl.length === 0) {
+      this.notify(this.topicVoted ? '已经点过赞了' : '当前主题暂不支持点赞');
+      return;
+    }
+    const ok = await GuozaokeService.vote(this.topicVoteUrl);
+    if (ok) {
+      this.topicVoted = true;
+      this.voteCount += 1;
+      this.notify('点赞成功');
+    } else this.notify('点赞失败，请稍后重试');
+  }
+
+  private openEditor(): void {
+    const text = htmlText(this.body, false);
+    setTimeout(() => router.pushUrl({
+      url: 'pages/NewTopicPage',
+      params: { edit: '1', editId: this.topicId, title: this.title, content: text, nodeCode: this.nodeCode, nodeTitle: this.nodeTitle }
+    }), 80);
+  }
+
   private async sendComment(): Promise<void> {
     const value = this.comment.trim();
     if (this.sending || value.length === 0 || this.topicId.length === 0) return;
@@ -119,8 +216,10 @@ struct TopicPage {
     try {
       if (await GuozaokeService.comment(this.topicId, content)) {
         this.dismissComposer(true);
-        this.comments = await GuozaokeService.topicComments(this.topicId);
-        if (this.commentsOrderDesc) this.comments = this.comments.slice().reverse();
+        const commentResult = await GuozaokeService.topicCommentPage(this.topicId, 1);
+        this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
+        this.commentPage = 1;
+        this.commentsHasMore = commentResult.hasMore;
         this.notify('评论成功');
       } else {
         this.notify('评论失败，请稍后重试');
@@ -141,6 +240,27 @@ struct TopicPage {
     } catch (_) { this.status = '复制分享链接失败'; }
   }
 
+  private async copyContent(value: string): Promise<void> {
+    const plainText: string = htmlText(value);
+    if (plainText.length === 0) return;
+    try {
+      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, plainText);
+      await pasteboard.getSystemPasteboard().setData(data);
+      // A long-press already takes noticeable time; keep the confirmation on
+      // screen long enough to be readable after the gesture completes.
+      this.notify('内容已复制', 4000);
+    } catch (_) { this.notify('复制失败'); }
+  }
+
+  private async openExternal(url: string): Promise<void> {
+    const target: string = url.startsWith('/') ? `https://www.guozaoke.com${url}` : url;
+    if (!/^https?:\/\//i.test(target)) return;
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      await context.startAbility({ action: 'ohos.want.action.viewData', uri: target });
+    } catch (_) { this.notify('无法打开链接'); }
+  }
+
   private openComposer(target: string = ''): void {
     this.replyTarget = target;
     if (target.length > 0) this.comment = `@${target} `;
@@ -159,9 +279,43 @@ struct TopicPage {
     }
   }
 
+  private async chooseCommentImage(): Promise<void> {
+    if (this.uploadingImage) return;
+    if (this.imageBedApiKey.trim().length === 0) { this.notify('请先在设置中添加 sm.ms API Key'); return; }
+    this.uploadingImage = true;
+    try {
+      const context = this.getUIContext().getHostContext();
+      if (!context) { this.notify('无法打开系统图片选择器'); this.uploadingImage = false; return; }
+      const viewPicker = new picker.PhotoViewPicker(context as common.UIAbilityContext);
+      const result = await viewPicker.select({ MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE, maxSelectNumber: 1 });
+      const uri = result.photoUris.length > 0 ? result.photoUris[0] : '';
+      if (uri.length === 0) { this.uploadingImage = false; return; }
+      const url = await GuozaokeService.uploadImage(uri, this.imageBedApiKey);
+      if (url.length === 0) { this.notify('图片上传失败，请检查 sm.ms API Key'); this.uploadingImage = false; return; }
+      this.comment = `${this.comment}${this.comment.length > 0 ? '\n' : ''}[![](${url})](${url})`;
+      this.notify('图片已插入');
+    } catch (_) { this.notify('已取消选择图片'); }
+    this.uploadingImage = false;
+  }
+
   private toggleCommentOrder(): void {
     this.commentsOrderDesc = !this.commentsOrderDesc;
     this.comments = this.comments.slice().reverse();
+  }
+
+  private async loadMoreComments(): Promise<void> {
+    if (this.commentsLoadingMore || !this.commentsHasMore || this.topicId.length === 0) return;
+    this.commentsLoadingMore = true;
+    try {
+      const nextPage: number = this.commentPage + 1;
+      const result: CommentListResult = await GuozaokeService.topicCommentPage(this.topicId, nextPage);
+      const knownIds: Set<string> = new Set(this.comments.map((item: CommentItem) => `${item.id}-${item.floor}`));
+      const nextItems: Array<CommentItem> = result.items.filter((item: CommentItem) => !knownIds.has(`${item.id}-${item.floor}`));
+      this.comments = this.comments.concat(this.commentsOrderDesc ? nextItems.slice().reverse() : nextItems);
+      this.commentPage = nextPage;
+      this.commentsHasMore = result.hasMore && nextItems.length > 0;
+    } catch (_) { this.notify('评论下一页加载失败'); }
+    this.commentsLoadingMore = false;
   }
 
   onBackPress(): boolean {
@@ -172,16 +326,34 @@ struct TopicPage {
     return false;
   }
 
+  @Builder
+  nativeContent(value: string, fontSize: number, lineHeight: number) {
+    Text() {
+      ForEach(contentParts(value), (part: ContentPart, index: number) => {
+        Span(part.text)
+          .fontWeight(part.bold ? FontWeight.Bold : FontWeight.Normal)
+          .fontColor(part.url.length > 0 ? this.themeColor : '#3C4043')
+          .decoration({ type: part.url.length > 0 ? TextDecorationType.Underline : TextDecorationType.None,
+            color: part.url.length > 0 ? this.themeColor : '#3C4043' })
+          .onClick(() => { if (part.url.length > 0) this.openExternal(part.url); })
+      }, (part: ContentPart, index: number) => `${index}-${part.text}-${part.url}`)
+    }.fontSize(fontSize).lineHeight(lineHeight).width('100%')
+      // Let HarmonyOS provide the native long-press menu, including copy,
+      // select-all and partial selection across apps.
+      .copyOption(CopyOptions.LocalDevice)
+      .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+  }
+
   build() {
     Column() {
       Row() {
-        Text('‹').fontSize(30).fontColor('#258DF5').width(44).textAlign(TextAlign.Center).onClick(() => {
+        Text('‹').fontSize(30).fontColor(this.themeColor).width(44).textAlign(TextAlign.Center).onClick(() => {
           if (this.composerOpen) this.dismissComposer();
-          else router.back();
+          else setTimeout(() => router.back(), 80);
         })
         Text('主题详情').fontSize(18).fontColor('#333333').fontWeight(FontWeight.Medium).margin({ left: 8 })
         Blank()
-        Text('分享').fontSize(15).fontColor('#258DF5').padding({ left: 12, right: 12, top: 8, bottom: 8 }).onClick(() => this.copyShareLink())
+        Text('分享').fontSize(15).fontColor(this.themeColor).padding({ left: 12, right: 12, top: 8, bottom: 8 }).onClick(() => this.copyShareLink())
       }.width('100%').height(56).flexShrink(0).padding({ left: 8, right: 12 }).backgroundColor(Color.White)
       Stack() {
         Scroll() {
@@ -193,18 +365,18 @@ struct TopicPage {
                 Image($r('app.media.avatar_placeholder')).width(32).height(32).borderRadius(16).objectFit(ImageFit.Cover)
                 if (this.avatar.length > 0) { Image(this.avatar).width(32).height(32).borderRadius(16).objectFit(ImageFit.Cover) }
               }.onClick(() => {
-                if (this.author.length > 0) router.pushUrl({ url: 'pages/ProfilePage', params: { username: this.author } });
+                if (this.author.length > 0) setTimeout(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username: this.author } }), 80);
               })
               Column() {
-                Text(this.author.length > 0 ? this.author : '过早客用户').fontSize(13).fontColor('#3B82F6').fontWeight(FontWeight.Medium)
+                Text(this.author.length > 0 ? this.author : '过早客用户').fontSize(13).fontColor(this.themeColor).fontWeight(FontWeight.Medium)
                   .onClick(() => {
-                    if (this.author.length > 0) router.pushUrl({ url: 'pages/ProfilePage', params: { username: this.author } });
+                    if (this.author.length > 0) setTimeout(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username: this.author } }), 80);
                   })
                 Row() {
                   if (this.createdTime.length > 0) { Text(this.createdTime).fontSize(11).fontColor('#8A9199'); }
                   if (this.nodeTitle.length > 0) {
-                    Text(this.nodeTitle).fontSize(11).fontColor('#258DF5').margin({ left: this.createdTime.length > 0 ? 8 : 0 })
-                      .onClick(() => router.pushUrl({ url: 'pages/TopicListPage', params: { kind: 'node', code: this.nodeCode, title: this.nodeTitle } }));
+                    Text(this.nodeTitle).fontSize(11).fontColor(this.themeColor).margin({ left: this.createdTime.length > 0 ? 8 : 0 })
+                      .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/TopicListPage', params: { kind: 'node', code: this.nodeCode, title: this.nodeTitle } }), 80));
                   }
                 }.margin({ top: 3 })
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
@@ -213,8 +385,7 @@ struct TopicPage {
               Row() { LoadingProgress().width(22).height(22); Text('正在加载详情…').fontSize(13).fontColor('#8A9199').margin({ left: 10 }); }
                 .width('100%').height(64).justifyContent(FlexAlign.Center)
             } else {
-              Text(this.body).fontSize(15).fontColor('#3C4043').lineHeight(24).width('100%')
-                .onClick(() => { if (this.composerOpen) this.dismissComposer(); })
+              this.nativeContent(this.body, 15, 24)
               ForEach(this.images, (url: string, index: number) => {
                 Image(url).width('100%').height(this.imageHeights[index]).objectFit(ImageFit.Contain)
                   .margin({ top: 12 }).borderRadius(6).backgroundColor('#F7F8FA')
@@ -228,32 +399,56 @@ struct TopicPage {
               }, (url: string) => url)
             }
           }.width('100%').padding(18).backgroundColor(Color.White).borderRadius(10)
+          // Keep the primary actions directly under the post body. They are
+          // intentionally grouped together instead of spreading across the
+          // row, which mirrors the compact action area in the H5 client.
+          Row() {
+            Text('回复').fontSize(14).fontColor(this.themeColor).padding({ left: 10, right: 10, top: 9, bottom: 9 })
+              .onClick(() => this.openComposer())
+            Text(this.favoriteBusy ? '处理中…' : (this.favorite ? '已收藏' : '收藏')).fontSize(13).fontColor('#7B8794').margin({ left: 18, right: 18 })
+              .onClick(() => this.toggleFavorite())
+            Text(this.topicVoted ? '已赞' : '赞').fontSize(13).fontColor(this.topicVoted ? '#F59E0B' : this.themeColor).margin({ right: 18 })
+              .onClick(() => this.voteTopic())
+            Text('分享').fontSize(13).fontColor(this.themeColor).onClick(() => this.copyShareLink())
+          }.width('100%').height(48).padding({ left: 4, right: 4 }).backgroundColor(Color.White).borderRadius(8)
+            .border({ width: { top: 1, bottom: 1 }, color: '#E6E8EB' }).margin({ top: 8, bottom: 4 })
+          // Secondary metadata stays on its own line so the actions remain
+          // easy to hit and the counts are visually subordinate.
+          Row() {
+            if (this.canEdit) {
+              Text('编辑主题').fontSize(12).fontColor(this.themeColor).onClick(() => this.openEditor())
+            }
+            Text(`${this.viewCount} 次点击`).fontSize(12).fontColor('#8A9199').margin({ left: this.canEdit ? 16 : 0 })
+            Blank()
+            Text(`${this.favoriteCount} 人收藏`).fontSize(12).fontColor('#8A9199')
+            Text(`${this.voteCount} 人赞`).fontSize(12).fontColor(this.topicVoted ? '#F59E0B' : '#8A9199').margin({ left: 12 })
+          }.width('100%').padding({ left: 4, right: 4, top: 8, bottom: 4 })
           Row() {
             Text(`评论 ${this.comments.length}`).fontSize(17).fontWeight(FontWeight.Medium).fontColor('#30343B')
             Blank()
-            Text(this.commentsOrderDesc ? '倒序排列' : '正序排列').fontSize(12).fontColor('#258DF5')
+            Text(this.commentsOrderDesc ? '倒序排列' : '正序排列').fontSize(12).fontColor(this.themeColor)
               .padding({ left: 10, right: 2, top: 6, bottom: 6 }).onClick(() => this.toggleCommentOrder())
           }.width('100%').padding({ top: 20, bottom: 10, left: 4, right: 4 })
           ForEach(this.comments, (item: CommentItem, index: number) => {
             Row() {
               Image(item.avatar.length > 0 ? item.avatar : $r('app.media.avatar_placeholder')).width(34).height(34).borderRadius(17).objectFit(ImageFit.Cover)
                 .onClick(() => {
-                  if (item.author.length > 0) router.pushUrl({ url: 'pages/ProfilePage', params: { username: item.author } });
+                  if (item.author.length > 0) setTimeout(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username: item.author } }), 80);
                 })
               Column() {
                 Row() {
-                  Text(item.author.length > 0 ? item.author : `用户 ${index + 1}`).fontSize(13).fontColor('#3B82F6').fontWeight(FontWeight.Medium)
+                  Text(item.author.length > 0 ? item.author : `用户 ${index + 1}`).fontSize(13).fontColor(this.themeColor).fontWeight(FontWeight.Medium)
                     .onClick(() => {
-                      if (item.author.length > 0) router.pushUrl({ url: 'pages/ProfilePage', params: { username: item.author } });
+                      if (item.author.length > 0) setTimeout(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username: item.author } }), 80);
                     })
                   Text(item.time).fontSize(11).fontColor('#A0A5AB').margin({ left: 8 })
                   Blank()
                   Text(item.floor.startsWith('#') ? item.floor : `#${item.floor}`).fontSize(12).fontColor('#A0A5AB')
                 }.width('100%')
-                Text(htmlText(item.content)).fontSize(14).fontColor('#3C4043').lineHeight(21).width('100%').margin({ top: 6 })
+                Column() { this.nativeContent(item.content, 14, 21) }.width('100%').margin({ top: 6 })
                 Row() {
                   Blank()
-                  Text('回复').fontSize(12).fontColor('#258DF5').padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                  Text('回复').fontSize(12).fontColor(this.themeColor).padding({ left: 10, right: 10, top: 4, bottom: 4 })
                     .onClick(() => {
                       this.openComposer(item.author.length > 0 ? item.author : `用户 ${index + 1}`);
                     })
@@ -269,33 +464,34 @@ struct TopicPage {
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
             }.width('100%').padding(14).backgroundColor(Color.White).borderRadius(8).margin({ bottom: 8 })
           }, (item: CommentItem, index: number) => `${item.id}-${index}`)
+          if (this.commentsLoadingMore || this.commentsHasMore) {
+            Row() {
+              if (this.commentsLoadingMore) { LoadingProgress().width(18).height(18).color(this.themeColor) }
+              Text(this.commentsLoadingMore ? '正在加载更多评论…' : '继续上滑加载更多评论').fontSize(12).fontColor('#7B8794')
+                .margin({ left: this.commentsLoadingMore ? 8 : 0 })
+            }.width('100%').height(48).justifyContent(FlexAlign.Center)
+          }
           }.width('100%').constraintSize({ minHeight: '100%' }).justifyContent(FlexAlign.Start)
             .alignItems(HorizontalAlign.Start).padding({ left: 12, right: 12, top: 12, bottom: 16 })
-        }.width('100%').height('100%')
+        }.width('100%').height('100%').onReachEnd(() => this.loadMoreComments())
         if (this.composerOpen) {
           Column().width('100%').height('100%').backgroundColor('#01000000')
             .hitTestBehavior(HitTestMode.Block).onClick(() => this.dismissComposer())
         }
       }.layoutWeight(1).width('100%')
-      if (!this.composerOpen) {
-        Row() {
-          Text('回复').fontSize(16).fontColor('#258DF5').padding({ left: 12, right: 12, top: 10, bottom: 10 }).onClick(() => this.openComposer())
-          Blank()
-          Text(this.favoriteBusy ? '处理中…' : (this.favorite ? '已收藏' : '收藏')).fontSize(14).fontColor('#7B8794').margin({ right: 18 })
-            .onClick(() => this.toggleFavorite())
-          Text('分享').fontSize(14).fontColor('#258DF5').margin({ right: 14 }).onClick(() => this.copyShareLink())
-        }.width('100%').height(56).flexShrink(0).padding({ left: 8 }).backgroundColor(Color.White).border({ width: { top: 1 }, color: '#E6E8EB' })
-      } else {
+      if (this.composerOpen) {
         Row() {
           Text('×').fontSize(23).fontColor('#7B8794').width(40).height(48).textAlign(TextAlign.Center)
             .onClick(() => this.dismissComposer(true))
+          Text(this.uploadingImage ? '上传中…' : '图片').fontSize(12).fontColor(this.uploadingImage ? '#A0A5AB' : this.themeColor)
+            .width(44).textAlign(TextAlign.Center).onClick(() => this.chooseCommentImage())
           TextArea({ placeholder: this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容', text: this.comment })
             .id('commentInput')
             .focusOnTouch(true)
             .fontSize(15)
             .fontColor('#30343B')
             .placeholderColor('#9AA0A6')
-            .caretColor('#258DF5')
+            .caretColor(this.themeColor)
             .textAlign(TextAlign.Start)
             .lineHeight(21)
             .maxLines(3)
@@ -313,13 +509,22 @@ struct TopicPage {
               return true;
             })
           Button(this.sending ? '发送中…' : '评论').fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
-            .padding(0).borderRadius(20).backgroundColor('#258DF5')
+            .padding(0).borderRadius(20).backgroundColor(this.themeColor)
             .enabled(!this.sending && this.comment.trim().length > 0).onClick(() => this.sendComment())
         }.width('100%').height(72).flexShrink(0).alignItems(VerticalAlign.Center).backgroundColor(Color.White)
           .border({ width: { top: 1 }, color: '#E6E8EB' })
       }
-      if (this.status.length > 0) { Text(this.status).fontSize(13).fontColor('#258DF5').margin({ bottom: 6 }); }
-      if (this.shared) { Text('分享链接已复制').fontSize(13).fontColor('#258DF5').position({ x: 16, y: '80%' }); }
-    }.width('100%').height('100%').backgroundColor('#F5F5F5')
+      if (this.status.length > 0) {
+        Row() { Text(this.status).fontSize(13).fontColor(this.themeColor).textAlign(TextAlign.Center).width('100%') }
+          .width('92%').height(36).backgroundColor('#E8F5EE').borderRadius(18)
+          .shadow({ radius: 8, color: '#33000000', offsetY: 2 }).position({ x: '4%', y: '78%' }).zIndex(20)
+      }
+      if (this.shared) {
+        Row() { Text('分享链接已复制').fontSize(13).fontColor(this.themeColor).textAlign(TextAlign.Center).width('100%') }
+          .width('92%').height(36).backgroundColor('#E8F5EE').borderRadius(18)
+          .shadow({ radius: 8, color: '#33000000', offsetY: 2 }).position({ x: '4%', y: '78%' }).zIndex(20)
+      }
+    }.width('100%').height('100%').padding({ top: this.safeAreaTop, bottom: this.safeAreaBottom }).backgroundColor('#F5F5F5')
+      .hitTestBehavior(HitTestMode.BLOCK_HIERARCHY)
   }
 }

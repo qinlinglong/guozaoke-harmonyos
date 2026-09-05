@@ -5,6 +5,9 @@ import { GuozaokeService } from '../service/GuozaokeService';
 @Entry
 @Component
 struct BlockedUsersPage {
+  @StorageLink('themeColor') themeColor: string = '#51A775';
+  @StorageLink('safeAreaTop') safeAreaTop: number = 0;
+  @StorageLink('safeAreaBottom') safeAreaBottom: number = 0;
   @State users: Array<UserProfile> = [];
   @State loading: boolean = true;
   @State failed: boolean = false;
@@ -22,7 +25,7 @@ struct BlockedUsersPage {
   build() {
     Column() {
       Row() {
-        Text('‹').fontSize(32).fontColor('#258DF5').width(44).textAlign(TextAlign.Center).onClick(() => router.back())
+        Text('‹').fontSize(32).fontColor(this.themeColor).width(44).textAlign(TextAlign.Center).onClick(() => setTimeout(() => router.back(), 80))
         Text('已屏蔽用户').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 8 })
       }.width('100%').height(60).flexShrink(0).padding({ left: 8 }).backgroundColor(Color.White)
       if (this.loading) {
@@ -43,10 +46,11 @@ struct BlockedUsersPage {
               Text(user.username).fontSize(16).fontColor('#3C4043').margin({ left: 14 }).layoutWeight(1)
               Text('›').fontSize(24).fontColor('#A0A5AB')
             }.width('100%').height(64).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
-              .onClick(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username: user.username } }))
+              .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username: user.username } }), 80))
           }
         }, (user: UserProfile) => user.username)
       }.layoutWeight(1).width('100%')
-    }.width('100%').height('100%').backgroundColor('#F5F5F5')
+    }.width('100%').height('100%').padding({ top: this.safeAreaTop, bottom: this.safeAreaBottom }).backgroundColor('#F5F5F5')
+      .hitTestBehavior(HitTestMode.BLOCK_HIERARCHY)
   }
 }

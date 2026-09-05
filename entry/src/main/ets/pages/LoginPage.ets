@@ -5,6 +5,9 @@ import { LOGIN_URL, GuozaokeService } from '../service/GuozaokeService';
 @Entry
 @Component
 struct LoginPage {
+  @StorageLink('themeColor') themeColor: string = '#51A775';
+  @StorageLink('safeAreaTop') safeAreaTop: number = 0;
+  @StorageLink('safeAreaBottom') safeAreaBottom: number = 0;
   controller: webview.WebviewController = new webview.WebviewController();
   @State completed: boolean = false;
   private timer: number = -1;
@@ -36,7 +39,7 @@ struct LoginPage {
   build() {
     Column() {
       Row() {
-        Text('‹').fontSize(32).fontColor('#1677C8').onClick(() => router.back())
+        Text('‹').fontSize(32).fontColor(this.themeColor).onClick(() => setTimeout(() => router.back(), 80))
         Text('登录过早客').fontSize(20).fontWeight(FontWeight.Bold).margin({ left: 18 })
       }.width('100%').height(60).padding({ left: 16 }).backgroundColor(Color.White)
       Text('登录后即可查看个人资料、收藏和参与讨论').fontSize(13).fontColor('#7B8794').margin({ top: 12, bottom: 8 })
@@ -46,6 +49,7 @@ struct LoginPage {
         .runJavaScriptOnDocumentEnd([{ script: `document.querySelector('meta[name=viewport]')||document.head.insertAdjacentHTML('beforeend','<meta name=viewport content="width=device-width,initial-scale=1">');var s=document.createElement('style');s.textContent='[id*=ad],[class*=ad],[class*=advert],iframe[src*=ad]{display:none!important}';document.head.appendChild(s);`, scriptRules: ['*'] }])
         .onPageEnd(() => this.checkLogin())
         .layoutWeight(1).width('100%')
-    }.width('100%').height('100%')
+    }.width('100%').height('100%').padding({ top: this.safeAreaTop, bottom: this.safeAreaBottom })
+      .hitTestBehavior(HitTestMode.BLOCK_HIERARCHY)
   }
 }
