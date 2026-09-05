@@ -317,10 +317,10 @@ struct TopicPage {
   private async sendComment(): Promise<void> {
     const raw = this.comment.trim();
     const value = normalizeReplyContent(raw).trim();
-    if (this.sending || value.length === 0 || this.topicId.length === 0) {
-      if (raw.length > 0 && value.length === 0) this.notify('回复仅支持文本，表情已过滤');
-      return;
-    }
+    if (this.sending) { this.notify('正在提交，请稍候'); return; }
+    if (this.topicId.length === 0) { this.notify('主题信息无效，请返回后重试'); return; }
+    if (raw.length === 0) { this.notify('请输入评论内容'); return; }
+    if (value.length === 0) { this.notify('回复仅支持文本，表情已过滤'); return; }
     // Do not gate submission on cookie-name heuristics. The redesigned site
     // may keep the authenticated WebView session under a different cookie
     // name; the POST/XSRF response is the authoritative login check.
@@ -347,8 +347,9 @@ struct TopicPage {
       }
     } catch (_) {
       this.notify('评论失败，请稍后重试');
+    } finally {
+      this.sending = false;
     }
-    this.sending = false;
   }
 
   async copyShareLink(): Promise<void> {
@@ -684,12 +685,15 @@ struct TopicPage {
                 if (event.type === KeyType.Up) this.dismissComposer();
                 return true;
               })
-            Button(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论')).id('commentSubmit').fontSize(14).height(40).width(60).margin({ left: 8, right: 8 })
-              .padding(0).borderRadius(20).backgroundColor(this.themeColor)
-              // Keep the hit target active while the native TextArea is
-              // updating its bound value; sendComment performs final
-              // empty/emoji-only validation and shows the visible toast.
-              .opacity(this.sending ? 0.55 : 1).enabled(!this.sending).onClick(() => this.sendComment())
+            Row() {
+              Text(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论'))
+                .fontSize(14).fontColor(Color.White).textAlign(TextAlign.Center).width('100%')
+            }.id('commentSubmit').height(44).width(68).margin({ left: 8, right: 8 })
+              .borderRadius(22).backgroundColor(this.themeColor)
+              // Row keeps a stable, full-size hit target while TextArea focus
+              // and the soft keyboard are changing in the same frame.
+              .opacity(this.sending ? 0.55 : 1).justifyContent(FlexAlign.Center)
+              .onClick(() => this.sendComment())
           }.width('100%').height(72).alignItems(VerticalAlign.Center)
         }.width('100%').height(110).flexShrink(0).backgroundColor(Color.White)
           .border({ width: { top: 1 }, color: '#E6E8EB' })

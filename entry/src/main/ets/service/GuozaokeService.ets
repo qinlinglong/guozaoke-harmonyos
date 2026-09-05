@@ -19,6 +19,37 @@ function decodeHtml(value: string): string {
     .replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
 }
 
+// Form controls contain escaped source text rather than rendered HTML. Do not
+// strip tags here: doing so silently removed Markdown/HTML-looking text while
+// loading an existing reply into the native editor.
+function decodeFormText(value: string): string {
+  return value.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>').replace(/&#39;|&#x27;/gi, "'").replace(/&quot;/gi, '"')
+    .replace(/&#x([0-9a-f]+);/gi, (_match: string, code: string) => {
+      const point = Number.parseInt(code, 16);
+      if (point <= 0xFFFF) return String.fromCharCode(point);
+      const adjusted = point - 0x10000;
+      return String.fromCharCode(0xD800 + (adjusted >> 10), 0xDC00 + (adjusted & 0x3FF));
+    }).replace(/&#([0-9]+);/g, (_match: string, code: string) => {
+      const point = Number.parseInt(code, 10);
+      if (point <= 0xFFFF) return String.fromCharCode(point);
+      const adjusted = point - 0x10000;
+      return String.fromCharCode(0xD800 + (adjusted >> 10), 0xDC00 + (adjusted & 0x3FF));
+    });
+}
+
+function replyTextareaValue(html: string): string {
+  const fields: Array<string> = html.match(/<textarea\b[^>]*>[\s\S]*?<\/textarea>/gi) ?? [];
+  let selected: string = '';
+  fields.forEach((field: string) => {
+    if (selected.length === 0 && /\b(?:name|id)=["'](?:content|reply_content|comment)["']/i.test(field)) selected = field;
+  });
+  if (selected.length === 0 && fields.length > 0) selected = fields[0];
+  if (selected.length === 0) return '';
+  const value = selected.match(/<textarea\b[^>]*>([\s\S]*?)<\/textarea>/i);
+  return value && value.length > 1 ? decodeFormText(value[1]).replace(/\r\n/g, '\n') : '';
+}
+
 function firstMatch(source: string, expression: RegExp): string {
   const matched: RegExpMatchArray | null = source.match(expression);
   return matched && matched.length > 1 ? decodeHtml(matched[1]) : '';
@@ -402,8 +433,12 @@ export class GuozaokeService {
         const replyId = vote[1].match(/[?&]reply_id=(\d+)/i);
         if (replyId) item.id = replyId[1];
       }
-      const editLink = block.match(/<(?:a|button)[^>]*(?:href|data-href)=["']([^"']*\/reply\/edit\/\d+[^"']*)["'][^>]*>[\s\S]*?编辑回复[\s\S]*?<\/(?:a|button)>/i);
+      // The redesigned site labels this action simply “编辑”. Its URL holds
+      // the global reply id; the surrounding element id may only be a floor
+      // number (for example #7), which points at an unrelated reply globally.
+      const editLink = block.match(/<(?:a|button)\b[^>]*(?:href|data-href)=["']([^"']*\/reply\/edit\/(\d+)[^"']*)["'][^>]*>/i);
       item.editUrl = editLink && editLink.length > 1 ? editLink[1] : '';
+      if (editLink && editLink.length > 2) item.id = editLink[2];
       item.editable = item.editUrl.length > 0;
       // Preserve block markup until the native view formats it. Otherwise
       // <br>, <p> and <li> boundaries disappear and replies run together.
@@ -487,10 +522,7 @@ export class GuozaokeService {
     if (safeId.length === 0) return '';
     try {
       const html = await GuozaokeService.get(`/reply/edit/${safeId}`);
-      const textarea = html.match(/<textarea[^>]*>([\s\S]*?)<\/textarea>/i);
-      if (textarea && textarea.length > 1) return decodeHtml(textarea[1]).replace(/\r\n/g, '\n').trim();
-      const value = html.match(/<textarea[^>]*value=["']([^"']*)["'][^>]*>/i);
-      return value && value.length > 1 ? decodeHtml(value[1]).replace(/\r\n/g, '\n').trim() : '';
+      return replyTextareaValue(html);
     } catch (_) {
       return '';
     }
@@ -590,9 +622,11 @@ export class GuozaokeService {
     // Matching the bare phrase “登录后” made successful POST responses look
     // like auth failures, so only treat explicit error prompts or login forms
     // as failures.
-    return /(?:无权访问|权限不足|禁止访问|forbidden)/i.test(html) ||
-      /<form[^>]+(?:login|signin)[^>]*>/i.test(html) ||
-      /<title[^>]*>[^<]*(?:登录|错误|失败)[^<]*<[/]title>/i.test(html);
+    // Inspect page structure, not arbitrary visible text: topic bodies and
+    // replies are user-generated and may legitimately contain words such as
+    // “失败”, “禁止访问” or “forbidden”.
+    return /<form[^>]+(?:action|id|class)=["'][^"']*(?:[/]login|signin|login-form)[^"']*["'][^>]*>/i.test(html) ||
+      /<title[^>]*>[^<]*(?:用户登录|会员登录|sign\s*in|403\s*forbidden)[^<]*<[/]title>/i.test(html);
   }
 
   static async post(path: string, form: string, referer: string = BASE_URL + '/'): Promise<string> {
@@ -613,6 +647,7 @@ export class GuozaokeService {
         expectDataType: http.HttpDataType.STRING
       });
       const body: string = (response.result || '') as string;
+      const code: number = response.responseCode;
       // The site normally answers form submissions with a 302 redirect. On
       // some HarmonyOS builds the redirect body is empty even though the
       // request was accepted, which used to surface as a false “保存失败” or
@@ -620,11 +655,14 @@ export class GuozaokeService {
       // HTTP status as a small response marker so callers can distinguish it
       // from an actual transport/auth failure.
       if (body.length > 0) return body;
-      const code: number = response.responseCode;
       // Some device builds expose responseCode as 0 after following the
       // redirect, while the server has already accepted the form. No thrown
       // request error plus an empty body is therefore still a completed POST.
-      return code >= 200 && code < 400 ? `__HTTP_OK__${code}` : '__HTTP_OK__';
+      // Guozaoke occasionally returns a non-standard status after it has
+      // already applied the mutation. The transport throws for a real network
+      // failure, so preserve the completed response and let callers inspect a
+      // concrete login form instead of treating that status as a failed save.
+      return code > 0 ? `__HTTP_COMPLETE__${code}` : '__HTTP_COMPLETE__';
     } finally { request.destroy(); }
   }
 
