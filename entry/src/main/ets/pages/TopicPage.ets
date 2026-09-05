@@ -243,7 +243,15 @@ struct TopicPage {
       // is unavailable. Keep the mandatory topic request separate so one
       // malformed or restricted post cannot turn the whole detail page into
       // “加载失败”.
-      const topic: TopicDetailData = await GuozaokeService.topicDetail(this.topicId);
+      let topic: TopicDetailData;
+      try {
+        topic = await GuozaokeService.topicDetail(this.topicId);
+        if (topic.content === '暂时无法解析主题内容') throw new Error('empty topic content');
+      } catch (_) {
+        // Match H5's tolerant navigation on a transient request failure.
+        await new Promise<void>((resolve: () => void) => setTimeout(resolve, 350));
+        topic = await GuozaokeService.topicDetail(this.topicId);
+      }
       this.body = topic.content;
       this.author = topic.author;
       this.avatar = topic.avatar;
