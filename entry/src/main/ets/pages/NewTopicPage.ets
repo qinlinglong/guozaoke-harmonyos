@@ -40,7 +40,7 @@ struct NewTopicPage {
 
   private async chooseAndUploadImage(): Promise<void> {
     if (this.uploading) return;
-    if (!GuozaokeService.biliLoggedIn() && this.apiKey.trim().length === 0) { this.status = '请先在设置中登录 Bilibili 或配置 sm.ms'; return; }
+    if (!GuozaokeService.biliLoggedIn() && this.apiKey.trim().length === 0) { this.status = '请先配置 sm.ms 或登录 Bilibili 图床'; return; }
     this.uploading = true;
     this.status = '正在选择图片…';
     try {
@@ -51,7 +51,8 @@ struct NewTopicPage {
       const uri = result.photoUris.length > 0 ? result.photoUris[0] : '';
       if (uri.length === 0) { this.status = ''; this.uploading = false; return; }
       this.status = '正在上传图片…';
-      const useBili = GuozaokeService.biliLoggedIn();
+      // sm.ms is the default bed; Bilibili is used when sm.ms has not been configured.
+      const useBili = this.apiKey.trim().length === 0 && GuozaokeService.biliLoggedIn();
       const url = useBili ? await GuozaokeService.uploadBilibiliImage(uri) : await GuozaokeService.uploadImage(uri, this.apiKey);
       if (url.length === 0) { this.status = useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'; this.uploading = false; return; }
       const markdown = `[![](${url})](${url})`;

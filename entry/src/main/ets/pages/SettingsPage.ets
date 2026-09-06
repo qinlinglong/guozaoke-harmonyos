@@ -74,17 +74,17 @@ struct SettingsPage {
             .width('100%').margin({ top: 8 })
         }
       }.width('100%').padding(16).margin({ top: 10 }).backgroundColor(Color.White)
-      Row() { Text('图床 API Key').fontSize(16).fontColor('#444444'); Blank(); Text(this.apiKey.length > 0 ? '已设置' : '未设置').fontSize(14).fontColor('#999999'); Text('›').fontSize(24).fontColor('#BBBBBB').margin({ left: 8 }); }
-        .width('100%').height(60).padding({ left: 16, right: 16 }).margin({ top: 10 }).backgroundColor(Color.White)
-        .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/SettingsEditPage' }), 80))
-      Row() { Text('如何获取图床 API Key').fontSize(16).fontColor('#444444'); Blank(); Text('›').fontSize(24).fontColor('#BBBBBB'); }
-        .width('100%').height(60).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
-        .border({ width: { top: 1 }, color: '#ECEEF0' }).onClick(() => this.openImageBedHelp())
-      Text('用于上传主题图片的图床配置').fontSize(12).fontColor('#999999').margin({ top: 10, left: 16, right: 16 })
       Row() { Text('Bilibili 图床').fontSize(16).fontColor('#444444'); Blank(); Text(GuozaokeService.biliLoggedIn() ? '已登录' : '未登录').fontSize(14).fontColor(GuozaokeService.biliLoggedIn() ? this.themeColor : '#999999'); Text('›').fontSize(24).fontColor('#BBBBBB').margin({ left: 8 }); }
         .width('100%').height(60).padding({ left: 16, right: 16 }).margin({ top: 10 }).backgroundColor(Color.White)
         .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/BilibiliLoginPage' }), 80))
-      Text('登录后，发帖和回复图片优先上传到 Bilibili').fontSize(12).fontColor('#999999').margin({ top: 10, left: 16, right: 16 })
+      Text('登录后可使用 Bilibili 图床上传图片').fontSize(12).fontColor('#999999').margin({ top: 10, left: 16, right: 16 })
+      Row() { Text('sm.ms 图床').fontSize(16).fontColor('#444444'); Blank(); Text(this.apiKey.length > 0 ? '已设置' : '未设置').fontSize(14).fontColor('#999999'); Text('›').fontSize(24).fontColor('#BBBBBB').margin({ left: 8 }); }
+        .width('100%').height(60).padding({ left: 16, right: 16 }).margin({ top: 10 }).backgroundColor(Color.White)
+        .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/SettingsEditPage' }), 80))
+      Row() { Text('如何获取 sm.ms API Key').fontSize(16).fontColor('#444444'); Blank(); Text('›').fontSize(24).fontColor('#BBBBBB'); }
+        .width('100%').height(60).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
+        .border({ width: { top: 1 }, color: '#ECEEF0' }).onClick(() => this.openImageBedHelp())
+      Text('默认图床配置，API Key 仅保存在本机').fontSize(12).fontColor('#999999').margin({ top: 10, left: 16, right: 16 })
       Blank()
     }.width('100%').height('100%').padding({ top: this.safeAreaTop, bottom: this.safeAreaBottom }).backgroundColor('#F5F5F5')
       .hitTestBehavior(HitTestMode.BLOCK_HIERARCHY)

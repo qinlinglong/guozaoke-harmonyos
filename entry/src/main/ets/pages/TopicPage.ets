@@ -505,7 +505,7 @@ struct TopicPage {
 
   private async chooseCommentImage(): Promise<void> {
     if (this.uploadingImage) return;
-    if (!GuozaokeService.biliLoggedIn() && this.imageBedApiKey.trim().length === 0) { this.notify('请先在设置中登录 Bilibili 或配置 sm.ms'); return; }
+    if (!GuozaokeService.biliLoggedIn() && this.imageBedApiKey.trim().length === 0) { this.notify('请先配置 sm.ms 或登录 Bilibili 图床'); return; }
     this.uploadingImage = true;
     try {
       const context = this.getUIContext().getHostContext();
@@ -514,7 +514,8 @@ struct TopicPage {
       const result = await viewPicker.select({ MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE, maxSelectNumber: 1 });
       const uri = result.photoUris.length > 0 ? result.photoUris[0] : '';
       if (uri.length === 0) { this.uploadingImage = false; return; }
-      const useBili = GuozaokeService.biliLoggedIn();
+      // sm.ms is the default bed; Bilibili is used when sm.ms has not been configured.
+      const useBili = this.imageBedApiKey.trim().length === 0 && GuozaokeService.biliLoggedIn();
       const url = useBili ? await GuozaokeService.uploadBilibiliImage(uri) : await GuozaokeService.uploadImage(uri, this.imageBedApiKey);
       if (url.length === 0) { this.notify(useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'); this.uploadingImage = false; return; }
       this.comment = `${this.comment}${this.comment.length > 0 ? '\n' : ''}[![](${url})](${url})`;
