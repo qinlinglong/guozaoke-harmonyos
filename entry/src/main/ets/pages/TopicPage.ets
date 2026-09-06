@@ -883,9 +883,10 @@ struct TopicPage {
           if (this.composerOpen) this.dismissComposer();
           else setTimeout(() => router.back(), 80);
         })
-        Text(this.title.length > 0 ? this.title : '主题详情')
+        // Keep the toolbar label stable; the complete topic title is shown
+        // in the detail card below, matching the Android client layout.
+        Text('主题详情')
           .fontSize(18).fontColor('#333333').fontWeight(FontWeight.Medium)
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1).margin({ left: 8 })
         Blank()
         Image($r('app.media.ic_share')).width(24).height(24).fillColor(this.themeColor).margin({ right: 8 })
