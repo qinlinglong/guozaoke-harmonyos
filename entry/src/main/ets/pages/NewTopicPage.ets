@@ -93,7 +93,7 @@ struct NewTopicPage {
       }
       if (markdown.length === 0) { this.status = useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'; this.uploading = false; return; }
       const inserted: string = markdown.join('\n');
-      this.content = this.content.trim().length > 0 ? `${this.content.trim()}\n${inserted}` : inserted;
+      this.content = this.content.trim().length > 0 ? `${this.content.trim()}\n\n${inserted}` : inserted;
       this.status = markdown.length === result.photoUris.length ? `已插入 ${markdown.length} 张图片` : `已插入 ${markdown.length} 张，部分上传失败`;
     } catch (_) { this.status = '已取消选择图片'; }
     this.uploading = false;

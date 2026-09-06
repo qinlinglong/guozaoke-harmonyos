@@ -184,7 +184,15 @@ function editableTopicText(value: string): string {
   // The redesigned detail container also includes the site's edit footer.
   // Never carry “本帖最后于……编辑” into the native editor and save it as
   // part of the user's actual post content.
-  return htmlText(value, false)
+  // Preserve image nodes for the editor. The detail renderer intentionally
+  // removes them from text because it displays `topic.images` natively, but
+  // the editor needs the original Markdown to keep images editable/savable.
+  const withImages: string = value
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>[\s\S]*?<img\b[^>]*src=["']([^"']+)["'][^>]*>[\s\S]*?<\/a>/gi,
+      (_all: string, href: string, src: string) => `[![](${src})](${href || src})`)
+    .replace(/<img\b[^>]*src=["']([^"']+)["'][^>]*>/gi,
+      (_all: string, src: string) => `[![](${src})](${src})`);
+  return htmlText(withImages, false)
     .replace(/\s*本帖最后于[\s\S]*?编辑\s*$/i, '')
     .trim();
 }
@@ -527,7 +535,7 @@ struct TopicPage {
         if (url.length > 0) markdown.push(`[![](${url})](${url})`);
       }
       if (markdown.length === 0) { this.notify(useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'); this.uploadingImage = false; return; }
-      this.comment = `${this.comment}${this.comment.length > 0 ? '\n' : ''}${markdown.join('\n')}`;
+      this.comment = `${this.comment}${this.comment.length > 0 ? '\n\n' : ''}${markdown.join('\n\n')}`;
       this.notify(markdown.length === result.photoUris.length ? `已插入 ${markdown.length} 张图片` : `已插入 ${markdown.length} 张，部分失败`);
     } catch (_) { this.notify('已取消选择图片'); }
     this.uploadingImage = false;
