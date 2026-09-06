@@ -146,7 +146,12 @@ function contentParts(value: string): Array<ContentPart> {
       });
   // Images are rendered as native Image components by the topic page. Do not
   // leave the parser's textual "[图片]" placeholder beside the real image.
-  const source: string = htmlText(markdown, false);
+  // Some responses already contain Markdown instead of an HTML anchor. When
+  // the API returns `[图片](image-url)` (or the escaped equivalent), the
+  // image is also present in `topic.images` and is rendered natively below;
+  // remove only this generated placeholder before tokenizing the text.
+  const source: string = htmlText(markdown, false)
+    .replace(/!?\\?\[\\?\s*(?:图片|image)\s*\\?\]\\?\(https?:\/\/[^)\s]+\)/gi, '');
   const result: Array<ContentPart> = [];
   const token = /(\*\*[\s\S]+?\*\*|\[[^\]]+\]\([^\s)]+\)|https?:\/\/[^\s<>()]+|@[A-Za-z0-9][A-Za-z0-9_-]{1,31})/g;
   let cursor: number = 0;
