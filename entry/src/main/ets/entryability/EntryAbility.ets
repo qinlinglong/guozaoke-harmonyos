@@ -41,6 +41,10 @@ export default class EntryAbility extends UIAbility {
     // Use one edge-to-edge window for every route. Page roots consume the
     // measured avoid-area values so controls stay clear of system gestures.
     windowStage.getMainWindow().then((mainWindow: window.Window) => {
+      // Keep the community reader/editor awake while the app is foregrounded.
+      // This is a window policy and does not depend on the phone's global
+      // screen-timeout setting.
+      mainWindow.setKeepScreenOn(true);
       mainWindow.setWindowLayoutFullScreen(true);
       mainWindow.setWindowSystemBarEnable(['status', 'navigation']);
       mainWindow.setWindowSystemBarProperties({

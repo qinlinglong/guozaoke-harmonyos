@@ -481,8 +481,25 @@ struct TopicPage {
         this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
         this.commentPage = 1;
         this.commentsHasMore = commentResult.hasMore;
+        if (editing) {
+          // The first CDN read can still contain the previous reply. Apply the
+          // accepted edit locally immediately, then let a later refresh catch
+          // up without making the user leave and re-enter the topic.
+          const localEdited = this.comments.find((item: CommentItem) => item.id === this.editingReplyId);
+          if (localEdited) {
+            localEdited.content = content;
+            this.comments = this.comments.slice();
+          }
+        }
       } catch (_) { }
       if (ok) {
+        if (editing) {
+          const localEdited = this.comments.find((item: CommentItem) => item.id === this.editingReplyId);
+          if (localEdited) {
+            localEdited.content = content;
+            this.comments = this.comments.slice();
+          }
+        }
         this.dismissComposer(true);
         this.notify(editing ? '回复已更新' : '评论成功');
       } else if (refreshed && !editing) {
