@@ -584,6 +584,11 @@ struct TopicPage {
     this.uploadingImage = false;
   }
 
+  private composerHeight(): number {
+    const lines: number = Math.min(6, Math.max(2, Math.ceil(this.comment.length / 28) + 1));
+    return 34 + lines * 21;
+  }
+
   private toggleCommentOrder(): void {
     this.commentsOrderDesc = !this.commentsOrderDesc;
     this.comments = this.comments.slice().reverse();
@@ -639,14 +644,14 @@ struct TopicPage {
   }
 
   @Builder
-  nativeDetailContent(value: string) {
+  nativeDetailContent(value: string, fontSize: number = 15, lineHeight: number = 24) {
     Column() {
       ForEach(detailParts(value), (part: ContentPart, index: number) => {
         if (part.url.startsWith('native-image://')) {
-          Image(part.url.substring('native-image://'.length)).width('100%').height(220)
+          Image(part.url.substring('native-image://'.length)).width('100%').height(200)
             .objectFit(ImageFit.Contain).margin({ top: 10, bottom: 8 }).borderRadius(6).backgroundColor('#F7F8FA')
         } else {
-          this.nativeContent(part.text, part.bold ? 15 : 15, 24)
+          this.nativeContent(part.text, fontSize, lineHeight)
         }
       }, (part: ContentPart, index: number) => `${index}-${part.url}-${part.text}`)
     }.width('100%')
@@ -761,7 +766,7 @@ struct TopicPage {
                   Blank()
                   Text(item.floor.startsWith('#') ? item.floor : `#${item.floor}`).fontSize(12).fontColor('#A0A5AB')
                 }.width('100%')
-                Column() { this.nativeContent(item.content, 14, 21) }.width('100%').margin({ top: 6 })
+                Column() { this.nativeDetailContent(item.content, 14, 21) }.width('100%').margin({ top: 6 })
                 Row() {
                   Blank()
                   Text('回复').fontSize(12).fontColor(this.themeColor).padding({ left: 10, right: 10, top: 4, bottom: 4 })
@@ -815,9 +820,9 @@ struct TopicPage {
               .caretColor(this.themeColor)
               .textAlign(TextAlign.Start)
               .lineHeight(21)
-              .maxLines(3)
+              .maxLines(6)
               .layoutWeight(1)
-              .height(56)
+              .height(this.composerHeight() - 26)
               .padding({ left: 12, right: 12, top: 8, bottom: 8 })
               .backgroundColor('#F5F6F8')
               .borderRadius(8)
@@ -838,8 +843,8 @@ struct TopicPage {
               // and the soft keyboard are changing in the same frame.
               .opacity(this.sending ? 0.55 : 1).justifyContent(FlexAlign.Center)
               .onClick(() => this.sendComment())
-          }.width('100%').height(72).alignItems(VerticalAlign.Center)
-        }.width('100%').height(110).flexShrink(0).backgroundColor(Color.White)
+          }.width('100%').height(this.composerHeight()).alignItems(VerticalAlign.Center)
+        }.width('100%').height(this.composerHeight() + 24).flexShrink(0).backgroundColor(Color.White)
           .border({ width: { top: 1 }, color: '#E6E8EB' })
       }
       if (this.status.length > 0) {
