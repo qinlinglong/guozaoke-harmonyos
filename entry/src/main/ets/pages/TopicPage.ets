@@ -118,13 +118,28 @@ function appendContentPart(result: Array<ContentPart>, text: string, bold: boole
   result.push(part);
 }
 
+function isImageUrl(url: string): boolean {
+  return /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:[?#].*)?$/i.test(url)
+    || /(?:article\.biliimg\.com|bfs\/new_dyn|static\.guozaoke\.com)/i.test(url);
+}
+
+function isImagePlaceholder(value: string): boolean {
+  const text: string = value.trim().replace(/[\[\]]/g, '');
+  return text === '图片' || text.toLowerCase() === 'image';
+}
+
 function contentParts(value: string): Array<ContentPart> {
   const markdown = value
     .replace(/<(?:strong|b)\b[^>]*>/gi, '**').replace(/<\/(?:strong|b)>/gi, '**')
     .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
       (_all: string, url: string, label: string) => {
       const cleanLabel: string = htmlText(label);
-        if (cleanLabel.length === 0 || /^(?:#|\/favorite|\/unfavorite|\/vote)/i.test(url) || cleanLabel === '编辑主题') return '';
+        // H5 represents an image as an anchor whose visible label is
+        // “[图片]”. The native detail page renders the image separately,
+        // so discard only this generated placeholder link to avoid showing
+        // both the image and “[图片]” text. Normal links remain untouched.
+        if (cleanLabel.length === 0 || (isImagePlaceholder(cleanLabel) && isImageUrl(url))
+          || /^(?:#|\/favorite|\/unfavorite|\/vote)/i.test(url) || cleanLabel === '编辑主题') return '';
         const profile = url.match(/^\/u\/([A-Za-z0-9_-]+)(?:[?#].*)?$/i);
         if (profile && profile.length > 1) return `[${cleanLabel}](native-profile://${profile[1]})`;
         return `[${cleanLabel}](${url})`;
@@ -143,7 +158,9 @@ function contentParts(value: string): Array<ContentPart> {
       appendContentPart(result, raw.substring(2, raw.length - 2), true);
     } else if (raw.startsWith('[')) {
       const link = raw.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-      if (link) appendContentPart(result, link[1], false, link[2]);
+      if (link && !(isImagePlaceholder(link[1]) && isImageUrl(link[2]))) {
+        appendContentPart(result, link[1], false, link[2]);
+      }
     } else if (raw.startsWith('@')) {
       const username = raw.substring(1);
       appendContentPart(result, raw, false, `native-profile://${username}`);
