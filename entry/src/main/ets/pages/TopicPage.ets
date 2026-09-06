@@ -248,7 +248,10 @@ struct TopicPage {
   @StorageLink('safeAreaBottom') safeAreaBottom: number = 0;
   @State title: string = '主题详情';
   @State topicId: string = '';
-  @State body: string = '加载中…';
+  // Keep the initial card structurally visible while the topic request is in
+  // flight. An empty string lets the view distinguish a first load from a
+  // refresh that already has usable content.
+  @State body: string = '';
   @State comment: string = '';
   @State comments: Array<CommentItem> = [];
   @State shared: boolean = false;
@@ -918,10 +921,20 @@ struct TopicPage {
                 }.margin({ top: 3 })
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
             }.width('100%').margin({ top: 12, bottom: 16 }).alignItems(VerticalAlign.Center)
-            if (this.loading) {
-              Row() { LoadingProgress().width(22).height(22); Text('正在加载详情…').fontSize(13).fontColor('#8A9199').margin({ left: 10 }); }
-                .width('100%').height(64).justifyContent(FlexAlign.Center)
+            if (this.loading && this.body.length === 0) {
+              // A compact skeleton avoids the blank-card flash on navigation.
+              Column() {
+                Row() { LoadingProgress().width(22).height(22); Text('正在加载详情…').fontSize(13).fontColor('#8A9199').margin({ left: 10 }); }
+                  .width('100%').justifyContent(FlexAlign.Center).margin({ bottom: 20 })
+                Row().width('92%').height(14).backgroundColor('#F0F2F4').borderRadius(7).margin({ bottom: 12 })
+                Row().width('78%').height(14).backgroundColor('#F0F2F4').borderRadius(7).margin({ bottom: 12 })
+                Row().width('86%').height(14).backgroundColor('#F0F2F4').borderRadius(7)
+              }.width('100%').padding({ top: 12, bottom: 18 })
             } else {
+              if (this.loading) {
+                Row() { LoadingProgress().width(16).height(16); Text('更新中…').fontSize(12).fontColor('#8A9199').margin({ left: 6 }); }
+                  .width('100%').justifyContent(FlexAlign.End).margin({ bottom: 8 })
+              }
               this.nativeDetailContent(this.body)
             }
           }.width('100%').padding(18).backgroundColor(Color.White).borderRadius(10)
