@@ -3,19 +3,33 @@ import { common } from '@kit.AbilityKit';
 import { picker } from '@kit.CoreFileKit';
 import { GuozaokeService } from '../service/GuozaokeService';
 
-function previewImageUrls(value: string): Array<string> {
-  const urls: Array<string> = [];
-  const pattern = /!?(?:\[[^\]]*\])\((https?:\/\/[^)\s]+)\)/gi;
-  let match: RegExpExecArray | null = pattern.exec(value);
-  while (match) {
-    urls.push(match[1]);
-    match = pattern.exec(value);
+class PreviewPart {
+  kind: string = 'text';
+  value: string = '';
+  constructor(kind: string, value: string) {
+    this.kind = kind;
+    this.value = value;
   }
-  return urls;
 }
 
-function previewText(value: string): string {
-  return value.replace(/!?(?:\[[^\]]*\])\(https?:\/\/[^)\s]+\)/gi, '').replace(/\n{3,}/g, '\n\n').trim();
+function previewParts(value: string): Array<PreviewPart> {
+  const parts: Array<PreviewPart> = [];
+  // Support the uploader's linked-image form `[![](url)](url)` as well as
+  // ordinary Markdown `![alt](url)`, keeping surrounding text in place.
+  const pattern = /\[\s*!\[\]\((https?:\/\/[^)\s]+)\)\]\((?:https?:\/\/[^)\s]+)\)|!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi;
+  let cursor: number = 0;
+  let match: RegExpExecArray | null = pattern.exec(value);
+  while (match) {
+    const before: string = value.substring(cursor, match.index);
+    if (before.trim().length > 0) parts.push(new PreviewPart('text', before.trim()));
+    parts.push(new PreviewPart('image', match[1] || match[2]));
+    cursor = match.index + match[0].length;
+    match = pattern.exec(value);
+  }
+  const tail: string = value.substring(cursor).trim();
+  if (tail.length > 0) parts.push(new PreviewPart('text', tail));
+  if (parts.length === 0 && value.trim().length > 0) parts.push(new PreviewPart('text', value.trim()));
+  return parts;
 }
 
 @Entry
@@ -128,10 +142,13 @@ struct NewTopicPage {
             Column() {
               Text(this.title.trim()).fontSize(21).fontWeight(FontWeight.Bold).fontColor('#202124').width('100%').margin({ bottom: 14 })
               Text(this.nodeTitle.length > 0 ? this.nodeTitle : '未选择节点').fontSize(12).fontColor(this.themeColor).width('100%').margin({ bottom: 18 })
-              Text(previewText(this.content)).fontSize(16).lineHeight(25).fontColor('#3C4043').width('100%').textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
-              ForEach(previewImageUrls(this.content), (url: string) => {
-                Image(url).width('100%').height(220).objectFit(ImageFit.Contain).margin({ top: 12 }).borderRadius(6).backgroundColor('#F7F8FA')
-              }, (url: string) => url)
+              ForEach(previewParts(this.content), (part: PreviewPart, index: number) => {
+                if (part.kind === 'image') {
+                  Image(part.value).width('100%').height(220).objectFit(ImageFit.Contain).margin({ top: 12, bottom: 12 }).borderRadius(6).backgroundColor('#F7F8FA')
+                } else {
+                  Text(part.value).fontSize(16).lineHeight(25).fontColor('#3C4043').width('100%').textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE).margin({ bottom: 10 })
+                }
+              }, (part: PreviewPart, index: number) => `${index}-${part.kind}-${part.value}`)
             }.width('100%').padding(20)
           }.layoutWeight(1).width('100%')
           Row() {
