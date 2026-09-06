@@ -91,11 +91,13 @@ entry/src/main/resources/         字符串、图标和占位图
 
 以下截图为当前真机调试版本，使用仓库内图片，不依赖外部图床：
 
-![主题详情](docs/images/topic-title.png)
-
-![主题正文](docs/images/topic-detail.png)
-
-![评论区域](docs/images/topic-comments.png)
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/topic-title.png" width="240" alt="主题标题页面"><br>主题标题页面</td>
+    <td align="center"><img src="docs/images/topic-detail.png" width="240" alt="主题正文页面"><br>主题正文页面</td>
+    <td align="center"><img src="docs/images/topic-comments.png" width="240" alt="评论区域页面"><br>评论区域页面</td>
+  </tr>
+</table>
 
 ## Privacy
 
