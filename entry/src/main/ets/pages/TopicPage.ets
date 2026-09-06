@@ -479,6 +479,11 @@ struct TopicPage {
     this.sending = true;
     this.status = '发送中…';
     const editing = this.editingReplyId.length > 0;
+    // Keep stable copies because dismissComposer clears the editor state after
+    // a successful mutation. They are also used by the delayed cache refresh
+    // below to merge the server's canonical reply back into the visible list.
+    const editingId = this.editingReplyId;
+    const editingPage = this.commentPage;
     const content = !editing && this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
     const previousComments: Array<CommentItem> = this.comments.slice();
     const previousEditedIndex: number = editing
@@ -523,7 +528,7 @@ struct TopicPage {
       } catch (_) { }
       if (ok) {
         if (editing) {
-          const localEdited = this.comments.find((item: CommentItem) => item.id === this.editingReplyId);
+          const localEdited = this.comments.find((item: CommentItem) => item.id === editingId);
           if (localEdited) localEdited.content = content;
           else if (previousEditedIndex >= 0) {
             const retained = previousComments[previousEditedIndex];
@@ -533,6 +538,20 @@ struct TopicPage {
             this.comments = nextComments;
           }
           this.comments = this.comments.slice();
+          // The H5 endpoint can be acknowledged before the CDN/detail page
+          // exposes the new body. Re-read the page after a short delay and
+          // merge only the edited item so pagination and the optimistic UI are
+          // preserved instead of resetting the whole comment list.
+          setTimeout(async () => {
+            try {
+              const latest = await GuozaokeService.topicCommentPage(this.topicId, editingPage);
+              const serverEdited = latest.items.find((item: CommentItem) => item.id === editingId);
+              if (!serverEdited) return;
+              this.markEditable([serverEdited]);
+              const merged = this.comments.map((item: CommentItem) => item.id === editingId ? serverEdited : item);
+              this.comments = merged.slice();
+            } catch (_) {}
+          }, 700);
         }
         this.dismissComposer(true);
         this.notify(editing ? '回复已更新' : '评论成功');
