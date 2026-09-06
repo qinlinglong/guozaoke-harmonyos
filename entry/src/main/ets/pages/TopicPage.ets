@@ -497,7 +497,7 @@ struct TopicPage {
       // is classified as an error by the native client. Verify the new reply
       // in the refreshed list before showing a false failure message.
       try {
-        const commentResult = await GuozaokeService.topicCommentPage(this.topicId, 1);
+        const commentResult = await GuozaokeService.topicCommentPage(this.topicId, editing ? editingPage : 1);
         refreshed = true;
         if (!ok && !editing) {
           const expected: string = value.replace(/\s+/g, ' ').trim();
@@ -506,7 +506,7 @@ struct TopicPage {
         }
         this.markEditable(commentResult.items);
         this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
-        this.commentPage = 1;
+        if (!editing) this.commentPage = 1;
         this.commentsHasMore = commentResult.hasMore;
         if (editing) {
           // The first CDN read can still contain the previous reply. Apply the
@@ -547,6 +547,12 @@ struct TopicPage {
               const latest = await GuozaokeService.topicCommentPage(this.topicId, editingPage);
               const serverEdited = latest.items.find((item: CommentItem) => item.id === editingId);
               if (!serverEdited) return;
+              // Do not let a stale CDN response overwrite the optimistic
+              // value. Only accept the server item once its text matches the
+              // content submitted by the editor.
+              const expected = content.replace(/\s+/g, ' ').trim();
+              const actual = htmlText(serverEdited.content, false).replace(/\s+/g, ' ').trim();
+              if (expected.length === 0 || (actual !== expected && !actual.includes(expected))) return;
               this.markEditable([serverEdited]);
               const merged = this.comments.map((item: CommentItem) => item.id === editingId ? serverEdited : item);
               this.comments = merged.slice();
