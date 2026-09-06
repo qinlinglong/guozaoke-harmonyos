@@ -93,9 +93,9 @@ entry/src/main/resources/         字符串、图标和占位图
 
 <table>
   <tr>
-    <td align="center"><img src="docs/images/topic-title.png" width="240" alt="B站图床示例"><br>B站图床示例</td>
-    <td align="center"><img src="docs/images/topic-detail.png" width="240" alt="首页图"><br>首页图</td>
-    <td align="center"><img src="docs/images/topic-comments.png" width="240" alt="详情图"><br>详情图</td>
+    <td align="center"><img src="docs/images/home.png" width="240" alt="首页"><br>首页</td>
+    <td align="center"><img src="docs/images/harmony-topic-detail.png" width="240" alt="鸿蒙客户端帖子详情页"><br>详情页（鸿蒙客户端帖子）</td>
+    <td align="center"><img src="docs/images/settings.png" width="240" alt="设置页"><br>设置页</td>
   </tr>
 </table>
 
