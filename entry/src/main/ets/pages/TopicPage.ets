@@ -7,6 +7,7 @@ import { CommentItem } from '../model/CommentItem';
 import { TopicDetailData } from '../model/TopicDetailData';
 import { ContentPart } from '../model/ContentPart';
 import { CommentListResult } from '../model/CommentListResult';
+import { setEditingKeepScreenOn } from '../util/ThemeUtil';
 
 // Keep the H5 vote result stable while navigating away and back to a detail
 // page. The server remains authoritative; this only bridges pages when the
@@ -462,6 +463,10 @@ struct TopicPage {
     this.status = '发送中…';
     const editing = this.editingReplyId.length > 0;
     const content = !editing && this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
+    const previousComments: Array<CommentItem> = this.comments.slice();
+    const previousEditedIndex: number = editing
+      ? previousComments.findIndex((item: CommentItem) => item.id === this.editingReplyId)
+      : -1;
     try {
       const requestOk = editing ? await GuozaokeService.editComment(this.editingReplyId, content, this.topicId) : await GuozaokeService.comment(this.topicId, content);
       let ok: boolean = requestOk;
@@ -483,9 +488,16 @@ struct TopicPage {
         this.commentsHasMore = commentResult.hasMore;
         if (editing) {
           // The first CDN read can still contain the previous reply. Apply the
-          // accepted edit locally immediately, then let a later refresh catch
-          // up without making the user leave and re-enter the topic.
-          const localEdited = this.comments.find((item: CommentItem) => item.id === this.editingReplyId);
+          // accepted edit locally immediately. If pagination/CDN lag omits
+          // the edited item, retain it at its previous position instead of
+          // making the user leave and re-enter the topic.
+          let localEdited = this.comments.find((item: CommentItem) => item.id === this.editingReplyId);
+          if (!localEdited && previousEditedIndex >= 0) {
+            localEdited = previousComments[previousEditedIndex];
+            const nextComments = this.comments.slice();
+            nextComments.splice(Math.min(previousEditedIndex, nextComments.length), 0, localEdited);
+            this.comments = nextComments;
+          }
           if (localEdited) {
             localEdited.content = content;
             this.comments = this.comments.slice();
@@ -495,10 +507,15 @@ struct TopicPage {
       if (ok) {
         if (editing) {
           const localEdited = this.comments.find((item: CommentItem) => item.id === this.editingReplyId);
-          if (localEdited) {
-            localEdited.content = content;
-            this.comments = this.comments.slice();
+          if (localEdited) localEdited.content = content;
+          else if (previousEditedIndex >= 0) {
+            const retained = previousComments[previousEditedIndex];
+            retained.content = content;
+            const nextComments = this.comments.slice();
+            nextComments.splice(Math.min(previousEditedIndex, nextComments.length), 0, retained);
+            this.comments = nextComments;
           }
+          this.comments = this.comments.slice();
         }
         this.dismissComposer(true);
         this.notify(editing ? '回复已更新' : '评论成功');
@@ -546,6 +563,7 @@ struct TopicPage {
   }
 
   private openComposer(target: string = ''): void {
+    this.setKeepScreenOn(true);
     this.editingReplyId = '';
     this.replyTarget = target;
     if (target.length > 0) this.comment = `@${target} `;
@@ -560,6 +578,7 @@ struct TopicPage {
   }
 
   private dismissComposer(clearDraft: boolean = false): void {
+    this.setKeepScreenOn(false);
     try { this.getUIContext().getFocusController().clearFocus(); } catch (_) {}
     this.composerOpen = false;
     this.commentPreviewing = false;
@@ -588,6 +607,13 @@ struct TopicPage {
       this.comment = normalizeReplyContent(draft).trim();
     }
     this.focusComposer();
+  }
+
+  private setKeepScreenOn(enabled: boolean): void {
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      setEditingKeepScreenOn(context, enabled);
+    } catch (_) { }
   }
 
   private async chooseCommentImage(): Promise<void> {
