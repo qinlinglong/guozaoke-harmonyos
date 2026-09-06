@@ -384,8 +384,6 @@ struct TopicPage {
   }
 
   private showEditedComment(id: string, content: string, fallbackIndex: number, previous: Array<CommentItem>): void {
-    this.editedReplyContents.set(id, content);
-    this.replyRenderVersion += 1;
     let index = this.comments.findIndex((item: CommentItem) => item.id === id);
     let source: CommentItem | undefined = index >= 0 ? this.comments[index] : undefined;
     if (!source && fallbackIndex >= 0 && fallbackIndex < previous.length) {
@@ -393,6 +391,11 @@ struct TopicPage {
       source = previous[fallbackIndex];
     }
     if (!source) return;
+    // The edit endpoint uses a global reply id, while a parsed page can
+    // temporarily expose a floor/page id. Key the overlay by the actual item
+    // rendered by ForEach so the updated body is guaranteed to appear.
+    this.editedReplyContents.set(source.id, content);
+    this.replyRenderVersion += 1;
     const replacement = new CommentItem();
     replacement.id = source.id;
     replacement.author = source.author;
