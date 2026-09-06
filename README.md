@@ -79,6 +79,14 @@ entry/src/main/resources/         字符串、图标和占位图
 
 “设置 → 图床 API Key”用于保存用户自己的图片服务凭据。API Key 只保存在当前设备，请勿将它写入代码、Issue 或日志。
 
+应用支持在发布主题和评论时使用 Bilibili 图床。上传后会把图片地址写入 Markdown，并在原生预览、详情和评论中按图片渲染，不显示多余的“[图片]”占位文字。
+
+注意：文档中曾使用的部分 `article.biliimg.com` 示例地址目前返回 `404 Not Found`，图床源文件已经不可访问，因此无法下载归档到仓库。重新上传图片后，可以将稳定的本地副本放在 `docs/images/`，再在 README 中使用相对路径引用，例如：
+
+```markdown
+![详情截图](docs/images/topic-detail.jpg)
+```
+
 ## Privacy
 
 - 社区内容和账号服务由 [guozaoke.com](https://www.guozaoke.com/) 提供。
