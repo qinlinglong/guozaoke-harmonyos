@@ -84,8 +84,18 @@ entry/src/main/resources/         字符串、图标和占位图
 注意：文档中曾使用的部分 `article.biliimg.com` 示例地址目前返回 `404 Not Found`，图床源文件已经不可访问，因此无法下载归档到仓库。重新上传图片后，可以将稳定的本地副本放在 `docs/images/`，再在 README 中使用相对路径引用，例如：
 
 ```markdown
-![详情截图](docs/images/topic-detail.jpg)
+![详情截图](docs/images/topic-detail.png)
 ```
+
+## 界面截图
+
+以下截图为当前真机调试版本，使用仓库内图片，不依赖外部图床：
+
+![主题详情](docs/images/topic-title.png)
+
+![主题正文](docs/images/topic-detail.png)
+
+![评论区域](docs/images/topic-comments.png)
 
 ## Privacy
 
