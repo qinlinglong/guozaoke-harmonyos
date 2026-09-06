@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <!-- Warm wood tone stays independent from the app theme. -->
+  <path d="M22 31 80 13M25 38 83 20" fill="none" stroke="#A86B3D" stroke-width="6" stroke-linecap="round"/>
+  <path d="M22 30 80 12M25 37 83 19" fill="none" stroke="#D79A62" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+</svg>
