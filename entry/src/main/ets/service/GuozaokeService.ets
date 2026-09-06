@@ -47,8 +47,16 @@ function decodeFormText(value: string): string {
 function replyTextareaValue(html: string): string {
   const fields: Array<string> = html.match(/<textarea\b[^>]*>[\s\S]*?<\/textarea>/gi) ?? [];
   let selected: string = '';
+  let selectedValue: string = '';
   fields.forEach((field: string) => {
-    if (selected.length === 0 && /\b(?:name|id)=["'](?:content|reply_content|comment)["']/i.test(field)) selected = field;
+    if (/\b(?:name|id)=["'](?:content|reply_content|comment)["']/i.test(field)) {
+      const candidate = field.match(/<textarea\b[^>]*>([\s\S]*?)<\/textarea>/i);
+      const candidateValue: string = candidate && candidate.length > 1 ? decodeFormText(candidate[1]) : '';
+      if (candidateValue.length > selectedValue.length) {
+        selected = field;
+        selectedValue = candidateValue;
+      }
+    }
   });
   if (selected.length === 0 && fields.length > 0) selected = fields[0];
   if (selected.length === 0) return '';

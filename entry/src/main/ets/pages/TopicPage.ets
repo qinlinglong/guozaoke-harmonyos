@@ -589,6 +589,7 @@ struct TopicPage {
 
   private composerHeight(): number {
     if (this.commentPreviewing) return 190;
+    if (this.editingReplyId.length > 0) return 300;
     const logicalLines: Array<string> = this.comment.split('\n');
     let estimatedLines: number = 0;
     logicalLines.forEach((line: string) => estimatedLines += Math.max(1, Math.ceil(line.length / 28)));
@@ -835,7 +836,7 @@ struct TopicPage {
               .caretColor(this.themeColor)
               .textAlign(TextAlign.Start)
               .lineHeight(21)
-              .maxLines(6)
+              .maxLines(this.editingReplyId.length > 0 ? 20 : 6)
               .layoutWeight(1)
               .height(this.composerHeight() - 26)
               .padding({ left: 12, right: 12, top: 8, bottom: 8 })
