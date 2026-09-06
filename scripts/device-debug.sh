@@ -7,6 +7,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DEVICE_SERIAL="${DEVICE_SERIAL:-192.168.0.107:34973}"
 MODULE="${MODULE:-entry@default}"
 HAP_PATH="$ROOT_DIR/entry/build/default/outputs/default/entry-default-signed.hap"
+HDC_BIN="${HDC_BIN:-$(command -v hdc || true)}"
+if [[ -z "$HDC_BIN" && -x "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc" ]]; then
+  HDC_BIN="/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc"
+fi
 
 usage() {
   cat <<'EOF'
@@ -28,6 +32,14 @@ EOF
 }
 
 connect_device() {
+  if [[ -n "$HDC_BIN" ]]; then
+    "$HDC_BIN" tconn "$DEVICE_SERIAL" >/dev/null 2>&1 || true
+    if "$HDC_BIN" list targets | grep -Fq "$DEVICE_SERIAL"; then
+      echo "Connected through HDC: $DEVICE_SERIAL"
+      "$HDC_BIN" list targets
+      return
+    fi
+  fi
   devecocli device view --target "$DEVICE_SERIAL" --format json
 }
 
@@ -44,17 +56,23 @@ case "${1:-connect}" in
       echo "HAP not found: $HAP_PATH; run '$0 build' first." >&2
       exit 2
     fi
-    HDC_BIN="${HDC_BIN:-$(command -v hdc || true)}"
     if [[ -z "$HDC_BIN" ]]; then
       echo "hdc is not available. Install HarmonyOS command-line tools or set HDC_BIN." >&2
       exit 2
     fi
+    connect_device >/dev/null
     "$HDC_BIN" -t "$DEVICE_SERIAL" install -r "$HAP_PATH"
     echo "Installed without launching: $HAP_PATH"
     ;;
   launch)
     cd "$ROOT_DIR"
-    devecocli run --module "$MODULE" --device "$DEVICE_SERIAL"
+    devecocli build --product default --modules "$MODULE" --build-mode debug
+    if [[ -n "$HDC_BIN" ]]; then
+      "$0" install
+      "$HDC_BIN" -t "$DEVICE_SERIAL" shell aa start -a EntryAbility -b io.github.qinlinglong.guozaoke
+    else
+      devecocli run --module "$MODULE" --device "$DEVICE_SERIAL"
+    fi
     ;;
   logs)
     devecocli log --device "$DEVICE_SERIAL" --bundle-name io.github.qinlinglong.guozaoke --level E --follow
