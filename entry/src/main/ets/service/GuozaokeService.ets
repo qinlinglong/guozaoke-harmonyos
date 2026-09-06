@@ -465,10 +465,17 @@ export class GuozaokeService {
     const detail: TopicDetailData = new TopicDetailData();
     const headerMatch = html.match(/<div[^>]*class=["'][^"']*topic-detail[^"']*["'][\s\S]*?<div[^>]*class=["'][^"']*ui-header[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*ui-content)/i);
     const header: string = headerMatch ? headerMatch[0] : html;
-    detail.title = firstMatch(html, /<(?:h1|h2|h3|div|span|a)[^>]*class=["'][^"']*(?:topic[-_ ]?title|thread[-_ ]?title|post[-_ ]?title)[^"']*["'][^>]*>([\s\S]*?)<\/(?:h1|h2|h3|div|span|a)>/i) ||
-      firstMatch(html, /<h1[^>]*class=["'][^"']*title[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i) ||
-      firstMatch(html, /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) ||
-      firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i).replace(/\s*(?:[-|｜]\s*)?过早客.*$/i, '').trim();
+    // Only inspect the topic header first. The redesigned page can contain
+    // other cards/comments with a generic `title` class; matching the whole
+    // document used to surface one of those labels as the topic title.
+    const titleSource: string = header.length > 0 ? header : html;
+    detail.title = firstMatch(titleSource, /<(?:h1|h2|h3|h4|div|span|a)[^>]*class=["'][^"']*(?:topic[-_ ]?(?:title|subject|name)|thread[-_ ]?(?:title|subject|name)|post[-_ ]?(?:title|subject|name))[^"']*["'][^>]*>([\s\S]*?)<\/(?:h1|h2|h3|h4|div|span|a)>/i) ||
+      firstMatch(titleSource, /<h[1-4][^>]*class=["'][^"']*title[^"']*["'][^>]*>([\s\S]*?)<\/h[1-4]>/i) ||
+      firstMatch(titleSource, /<(?:h1|h2|h3|h4)[^>]*>([\s\S]*?)<\/(?:h1|h2|h3|h4)>/i);
+    if (detail.title.length === 0) {
+      detail.title = firstMatch(html, /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) ||
+        firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i).replace(/\s*(?:[-|｜]\s*)?过早客.*$/i, '').trim();
+    }
     const avatarTag = header.match(/<img[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
     detail.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
     detail.author = firstMatch(header,
