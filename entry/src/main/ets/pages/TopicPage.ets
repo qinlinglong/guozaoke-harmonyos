@@ -282,6 +282,7 @@ struct TopicPage {
   @State commentsLoadingMore: boolean = false;
   @StorageLink('commentsOrderDesc') commentsOrderDesc: boolean = false;
   @StorageLink('imageBedApiKey') imageBedApiKey: string = '';
+  @StorageLink('likedTopicIds') likedTopicIds: string = '';
   @State uploadingImage: boolean = false;
   @State commentPreviewing: boolean = false;
   @State editingReplyId: string = '';
@@ -343,7 +344,7 @@ struct TopicPage {
       this.favoriteCount = topic.favoriteCount;
       this.voteCount = topic.voteCount;
       this.topicVoteUrl = topic.voteUrl;
-      this.topicVoted = topic.voted || localVotedTopics.has(this.topicId);
+      this.topicVoted = topic.voted || localVotedTopics.has(this.topicId) || this.hasPersistedTopicVote(this.topicId);
       this.selfName = await GuozaokeService.selfUsername();
       this.ownTopic = this.author.length > 0 && this.selfName.length > 0 && this.author === this.selfName;
       // H5 controls the edit window (including its time limit) by rendering
@@ -422,6 +423,16 @@ struct TopicPage {
     return edited !== undefined ? edited : item.content;
   }
 
+  private hasPersistedTopicVote(id: string): boolean {
+    return this.likedTopicIds.split(',').some((value: string) => value === id);
+  }
+
+  private persistTopicVote(id: string, voted: boolean): void {
+    const ids = this.likedTopicIds.split(',').filter((value: string) => value.length > 0 && value !== id);
+    if (voted) ids.push(id);
+    this.likedTopicIds = ids.join(',');
+  }
+
   private async toggleFavorite(): Promise<void> {
     if (this.favoriteBusy) return;
     if (this.canEdit) {
@@ -474,23 +485,30 @@ struct TopicPage {
     // the H5 vote control. Revert only when the endpoint explicitly rejects.
     this.topicVoted = true;
     localVotedTopics.add(this.topicId);
+    this.persistTopicVote(this.topicId, true);
     this.voteCount += 1;
     try {
       const result = await GuozaokeService.voteResult(this.topicVoteUrl);
       if (result.success) {
+        this.topicVoted = true;
+        this.persistTopicVote(this.topicId, true);
         this.notify('点赞成功');
       } else if (result.alreadyVoted) {
         // The optimistic state is already the correct final state.
+        this.topicVoted = true;
+        this.persistTopicVote(this.topicId, true);
         this.voteCount = Math.max(0, this.voteCount - 1);
         this.notify('您已经点过赞了');
       } else if (result.ownTopic) {
         this.topicVoted = false;
         localVotedTopics.delete(this.topicId);
+        this.persistTopicVote(this.topicId, false);
         this.voteCount = Math.max(0, this.voteCount - 1);
         this.notify('不能喜欢自己的主题');
       } else {
         this.topicVoted = false;
         localVotedTopics.delete(this.topicId);
+        this.persistTopicVote(this.topicId, false);
         this.voteCount = Math.max(0, this.voteCount - 1);
         this.notify('点赞失败，请稍后重试');
       }
