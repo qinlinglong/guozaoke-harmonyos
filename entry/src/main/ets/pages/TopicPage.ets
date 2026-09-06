@@ -546,6 +546,7 @@ struct TopicPage {
     if (!item.editable || item.id.length === 0) return;
     this.editingReplyId = item.id;
     this.replyTarget = '';
+    this.commentPreviewing = false;
     this.comment = normalizeReplyContent(htmlText(item.content, false)).trim();
     this.composerOpen = true;
     // Focus immediately so the editor is usable while the canonical form is
@@ -588,7 +589,10 @@ struct TopicPage {
 
   private composerHeight(): number {
     if (this.commentPreviewing) return 190;
-    const lines: number = Math.min(6, Math.max(2, Math.ceil(this.comment.length / 28) + 1));
+    const logicalLines: Array<string> = this.comment.split('\n');
+    let estimatedLines: number = 0;
+    logicalLines.forEach((line: string) => estimatedLines += Math.max(1, Math.ceil(line.length / 28)));
+    const lines: number = Math.min(6, Math.max(2, estimatedLines));
     return 34 + lines * 21;
   }
 
