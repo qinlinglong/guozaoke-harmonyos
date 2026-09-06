@@ -47,23 +47,29 @@ struct NewTopicPage {
       const context = this.getUIContext().getHostContext();
       if (!context) { this.status = '无法打开系统图片选择器'; this.uploading = false; return; }
       const viewPicker = new picker.PhotoViewPicker(context as common.UIAbilityContext);
-      const result = await viewPicker.select({ MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE, maxSelectNumber: 1 });
-      const uri = result.photoUris.length > 0 ? result.photoUris[0] : '';
-      if (uri.length === 0) { this.status = ''; this.uploading = false; return; }
-      this.status = '正在上传图片…';
+      const result = await viewPicker.select({ MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE, maxSelectNumber: 9 });
+      if (result.photoUris.length === 0) { this.status = ''; this.uploading = false; return; }
       // sm.ms is the default bed; Bilibili is used when sm.ms has not been configured.
       const useBili = this.apiKey.trim().length === 0 && GuozaokeService.biliLoggedIn();
-      const url = useBili ? await GuozaokeService.uploadBilibiliImage(uri) : await GuozaokeService.uploadImage(uri, this.apiKey);
-      if (url.length === 0) { this.status = useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'; this.uploading = false; return; }
-      const markdown = `[![](${url})](${url})`;
-      this.content = this.content.trim().length > 0 ? `${this.content.trim()}\n${markdown}` : markdown;
-      this.status = '图片已插入';
+      const markdown: Array<string> = [];
+      for (let index = 0; index < result.photoUris.length; index++) {
+        this.status = `正在上传图片 ${index + 1}/${result.photoUris.length}…`;
+        const uri: string = result.photoUris[index];
+        const url = useBili ? await GuozaokeService.uploadBilibiliImage(uri) : await GuozaokeService.uploadImage(uri, this.apiKey);
+        if (url.length > 0) markdown.push(`[![](${url})](${url})`);
+      }
+      if (markdown.length === 0) { this.status = useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'; this.uploading = false; return; }
+      const inserted: string = markdown.join('\n');
+      this.content = this.content.trim().length > 0 ? `${this.content.trim()}\n${inserted}` : inserted;
+      this.status = markdown.length === result.photoUris.length ? `已插入 ${markdown.length} 张图片` : `已插入 ${markdown.length} 张，部分上传失败`;
     } catch (_) { this.status = '已取消选择图片'; }
     this.uploading = false;
   }
   build() {
     Column() {
-      Row() { Text('‹').fontSize(32).fontColor(this.themeColor).onClick(() => setTimeout(() => router.back(), 80)); Text(this.editing ? '编辑主题' : '发表主题').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 }); Blank(); Text(this.uploading ? '上传中…' : '图片').fontSize(14).fontColor(this.uploading ? '#A0A5AB' : this.themeColor).margin({ right: 14 }).onClick(() => this.chooseAndUploadImage()); Text(this.submitting ? (this.editing ? '保存中…' : '发布中…') : (this.editing ? '保存' : '发布')).id('topicSubmit').fontSize(16).fontColor(this.submitting ? '#A0A5AB' : this.themeColor).onClick(async () => {
+      Row() { Text('‹').fontSize(32).fontColor(this.themeColor).onClick(() => setTimeout(() => router.back(), 80)); Text(this.editing ? '编辑主题' : '发表主题').fontSize(20).fontColor('#444444').fontWeight(FontWeight.Bold).margin({ left: 18 }); Blank();
+        Image($r('app.media.ic_image')).width(22).height(22).fillColor(this.uploading ? '#A0A5AB' : this.themeColor).margin({ right: 18 }).onClick(() => this.chooseAndUploadImage());
+        Image($r('app.media.ic_save')).width(22).height(22).fillColor(this.submitting ? '#A0A5AB' : this.themeColor).id('topicSubmit').onClick(async () => {
         if (this.submitting) return;
         if (!this.editing && this.nodeCode.length === 0) { this.status = '请先选择节点'; return; }
         if (this.title.trim().length < 3 || this.content.trim().length < 3) { this.status = '标题和内容至少需要 3 个字符'; return; }

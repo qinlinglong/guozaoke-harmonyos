@@ -516,15 +516,19 @@ struct TopicPage {
       const context = this.getUIContext().getHostContext();
       if (!context) { this.notify('无法打开系统图片选择器'); this.uploadingImage = false; return; }
       const viewPicker = new picker.PhotoViewPicker(context as common.UIAbilityContext);
-      const result = await viewPicker.select({ MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE, maxSelectNumber: 1 });
-      const uri = result.photoUris.length > 0 ? result.photoUris[0] : '';
-      if (uri.length === 0) { this.uploadingImage = false; return; }
+      const result = await viewPicker.select({ MIMEType: picker.PhotoViewMIMETypes.IMAGE_TYPE, maxSelectNumber: 9 });
+      if (result.photoUris.length === 0) { this.uploadingImage = false; return; }
       // sm.ms is the default bed; Bilibili is used when sm.ms has not been configured.
       const useBili = this.imageBedApiKey.trim().length === 0 && GuozaokeService.biliLoggedIn();
-      const url = useBili ? await GuozaokeService.uploadBilibiliImage(uri) : await GuozaokeService.uploadImage(uri, this.imageBedApiKey);
-      if (url.length === 0) { this.notify(useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'); this.uploadingImage = false; return; }
-      this.comment = `${this.comment}${this.comment.length > 0 ? '\n' : ''}[![](${url})](${url})`;
-      this.notify('图片已插入');
+      const markdown: Array<string> = [];
+      for (let index = 0; index < result.photoUris.length; index++) {
+        const uri: string = result.photoUris[index];
+        const url = useBili ? await GuozaokeService.uploadBilibiliImage(uri) : await GuozaokeService.uploadImage(uri, this.imageBedApiKey);
+        if (url.length > 0) markdown.push(`[![](${url})](${url})`);
+      }
+      if (markdown.length === 0) { this.notify(useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'); this.uploadingImage = false; return; }
+      this.comment = `${this.comment}${this.comment.length > 0 ? '\n' : ''}${markdown.join('\n')}`;
+      this.notify(markdown.length === result.photoUris.length ? `已插入 ${markdown.length} 张图片` : `已插入 ${markdown.length} 张，部分失败`);
     } catch (_) { this.notify('已取消选择图片'); }
     this.uploadingImage = false;
   }
@@ -746,8 +750,8 @@ struct TopicPage {
           Row() {
             Text('×').fontSize(23).fontColor('#7B8794').width(40).height(48).textAlign(TextAlign.Center)
               .onClick(() => this.dismissComposer(true))
-            Text(this.uploadingImage ? '上传中…' : '图片').fontSize(12).fontColor(this.uploadingImage ? '#A0A5AB' : this.themeColor)
-              .width(44).textAlign(TextAlign.Center).onClick(() => this.chooseCommentImage())
+            Image($r('app.media.ic_image')).width(22).height(22).fillColor(this.uploadingImage ? '#A0A5AB' : this.themeColor)
+              .margin({ left: 8, right: 10 }).onClick(() => this.chooseCommentImage())
             TextArea({ placeholder: this.editingReplyId.length > 0 ? '编辑回复…' : (this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容'), text: this.comment })
               .id('commentInput')
               .focusOnTouch(true)
@@ -772,8 +776,8 @@ struct TopicPage {
                 return true;
               })
             Row() {
-              Text(this.sending ? '保存中…' : (this.editingReplyId.length > 0 ? '保存' : '评论'))
-                .fontSize(14).fontColor(Color.White).textAlign(TextAlign.Center).width('100%')
+              Image($r(this.editingReplyId.length > 0 ? 'app.media.ic_save' : 'app.media.ic_reply'))
+                .width(20).height(20).fillColor(Color.White)
             }.id('commentSubmit').height(44).width(68).margin({ left: 8, right: 8 })
               .borderRadius(22).backgroundColor(this.themeColor)
               // Row keeps a stable, full-size hit target while TextArea focus
