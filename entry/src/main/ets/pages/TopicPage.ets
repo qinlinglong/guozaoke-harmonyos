@@ -181,6 +181,35 @@ function contentParts(value: string): Array<ContentPart> {
   return result;
 }
 
+function detailParts(value: string): Array<ContentPart> {
+  // Keep image positions in the source so captions and surrounding text stay
+  // attached to the correct image instead of all images being appended last.
+  const marked: string = value
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>\s*<img\b[^>]*src=["']([^"']+)["'][^>]*>\s*<\/a>/gi,
+      (_all: string, href: string, src: string) => `\uE000${src || href}\uE001`)
+    .replace(/<img\b[^>]*src=["']([^"']+)["'][^>]*>/gi,
+      (_all: string, src: string) => `\uE000${src}\uE001`)
+    .replace(/\[\s*!\[\]\((https?:\/\/[^)\s]+)\)\]\((?:https?:\/\/[^)\s]+)\)/gi,
+      (_all: string, src: string) => `\uE000${src}\uE001`)
+    .replace(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi,
+      (_all: string, src: string) => isImageUrl(src) ? `\uE000${src}\uE001` : _all);
+  const source: string = htmlText(marked, false);
+  const result: Array<ContentPart> = [];
+  const marker = /\uE000(https?:\/\/[^\uE001]+)\uE001/g;
+  let cursor: number = 0;
+  let match: RegExpExecArray | null = marker.exec(source);
+  while (match) {
+    contentParts(source.substring(cursor, match.index)).forEach((part: ContentPart) => result.push(part));
+    const image = new ContentPart();
+    image.url = `native-image://${match[1]}`;
+    result.push(image);
+    cursor = match.index + match[0].length;
+    match = marker.exec(source);
+  }
+  contentParts(source.substring(cursor)).forEach((part: ContentPart) => result.push(part));
+  return result;
+}
+
 function editableTopicText(value: string): string {
   // The redesigned detail container also includes the site's edit footer.
   // Never carry “本帖最后于……编辑” into the native editor and save it as
@@ -609,6 +638,20 @@ struct TopicPage {
       .textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
   }
 
+  @Builder
+  nativeDetailContent(value: string) {
+    Column() {
+      ForEach(detailParts(value), (part: ContentPart, index: number) => {
+        if (part.url.startsWith('native-image://')) {
+          Image(part.url.substring('native-image://'.length)).width('100%').height(220)
+            .objectFit(ImageFit.Contain).margin({ top: 10, bottom: 8 }).borderRadius(6).backgroundColor('#F7F8FA')
+        } else {
+          this.nativeContent(part.text, part.bold ? 15 : 15, 24)
+        }
+      }, (part: ContentPart, index: number) => `${index}-${part.url}-${part.text}`)
+    }.width('100%')
+  }
+
   build() {
     Column() {
       Row() {
@@ -651,18 +694,7 @@ struct TopicPage {
               Row() { LoadingProgress().width(22).height(22); Text('正在加载详情…').fontSize(13).fontColor('#8A9199').margin({ left: 10 }); }
                 .width('100%').height(64).justifyContent(FlexAlign.Center)
             } else {
-              this.nativeContent(this.body, 15, 24)
-              ForEach(this.images, (url: string, index: number) => {
-                Image(url).width('100%').height(this.imageHeights[index]).objectFit(ImageFit.Contain)
-                  .margin({ top: 12 }).borderRadius(6).backgroundColor('#F7F8FA')
-                  .onComplete((event) => {
-                    if (event && event.width > 0 && event.height > 0) {
-                      const next = this.imageHeights.slice();
-                      next[index] = Math.max(120, Math.min(420, 344 * event.height / event.width));
-                      this.imageHeights = next;
-                    }
-                  })
-              }, (url: string) => url)
+              this.nativeDetailContent(this.body)
             }
           }.width('100%').padding(18).backgroundColor(Color.White).borderRadius(10)
           // Keep the primary actions directly under the post body. They are
