@@ -463,19 +463,30 @@ struct TopicPage {
     const editing = this.editingReplyId.length > 0;
     const content = !editing && this.replyTarget.length > 0 && value.indexOf(`@${this.replyTarget}`) !== 0 ? `@${this.replyTarget} ${value}` : value;
     try {
-      const ok = editing ? await GuozaokeService.editComment(this.editingReplyId, content, this.topicId) : await GuozaokeService.comment(this.topicId, content);
+      const requestOk = editing ? await GuozaokeService.editComment(this.editingReplyId, content, this.topicId) : await GuozaokeService.comment(this.topicId, content);
+      let ok: boolean = requestOk;
+      let refreshed = false;
+      // A form POST can be applied successfully while the H5 redirect body
+      // is classified as an error by the native client. Verify the new reply
+      // in the refreshed list before showing a false failure message.
+      try {
+        const commentResult = await GuozaokeService.topicCommentPage(this.topicId, 1);
+        refreshed = true;
+        if (!ok && !editing) {
+          const expected: string = value.replace(/\s+/g, ' ').trim();
+          ok = expected.length > 0 && commentResult.items.some((item: CommentItem) =>
+            htmlText(item.content, false).replace(/\s+/g, ' ').includes(expected));
+        }
+        this.markEditable(commentResult.items);
+        this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
+        this.commentPage = 1;
+        this.commentsHasMore = commentResult.hasMore;
+      } catch (_) { }
       if (ok) {
         this.dismissComposer(true);
         this.notify(editing ? '回复已更新' : '评论成功');
-        // A successful POST must not be reported as failed just because the
-        // follow-up comment refresh times out or is blocked by the CDN.
-        try {
-          const commentResult = await GuozaokeService.topicCommentPage(this.topicId, 1);
-          this.markEditable(commentResult.items);
-          this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
-          this.commentPage = 1;
-          this.commentsHasMore = commentResult.hasMore;
-        } catch (_) { }
+      } else if (refreshed && !editing) {
+        this.notify('评论提交失败，请重试');
       } else {
         this.notify('评论失败，请稍后重试');
       }
