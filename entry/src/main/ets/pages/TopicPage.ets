@@ -285,6 +285,8 @@ struct TopicPage {
   @State uploadingImage: boolean = false;
   @State commentPreviewing: boolean = false;
   @State editingReplyId: string = '';
+  @State replyRenderVersion: number = 0;
+  private editedReplyContents: Map<string, string> = new Map<string, string>();
   private loadedOnce: boolean = false;
 
   aboutToAppear(): void {
@@ -382,6 +384,8 @@ struct TopicPage {
   }
 
   private showEditedComment(id: string, content: string, fallbackIndex: number, previous: Array<CommentItem>): void {
+    this.editedReplyContents.set(id, content);
+    this.replyRenderVersion += 1;
     let index = this.comments.findIndex((item: CommentItem) => item.id === id);
     let source: CommentItem | undefined = index >= 0 ? this.comments[index] : undefined;
     if (!source && fallbackIndex >= 0 && fallbackIndex < previous.length) {
@@ -405,6 +409,14 @@ struct TopicPage {
     if (index >= 0 && index < next.length) next[index] = replacement;
     else next.splice(Math.min(index, next.length), 0, replacement);
     this.comments = next;
+  }
+
+  private displayedReplyContent(item: CommentItem): string {
+    // Read the revision so ArkUI tracks this overlay as a render dependency.
+    const revision = this.replyRenderVersion;
+    if (revision < 0) return item.content;
+    const edited = this.editedReplyContents.get(item.id);
+    return edited !== undefined ? edited : item.content;
   }
 
   private async toggleFavorite(): Promise<void> {
@@ -882,7 +894,7 @@ struct TopicPage {
                   Blank()
                   Text(item.floor.startsWith('#') ? item.floor : `#${item.floor}`).fontSize(12).fontColor('#A0A5AB')
                 }.width('100%')
-                Column() { this.nativeDetailContent(item.content, 14, 21) }.width('100%').margin({ top: 6 })
+                Column() { this.nativeDetailContent(this.displayedReplyContent(item), 14, 21) }.width('100%').margin({ top: 6 })
                 Row() {
                   Blank()
                   Text('回复').fontSize(12).fontColor(this.themeColor).padding({ left: 10, right: 10, top: 4, bottom: 4 })
