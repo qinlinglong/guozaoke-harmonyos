@@ -3,6 +3,21 @@ import { common } from '@kit.AbilityKit';
 import { picker } from '@kit.CoreFileKit';
 import { GuozaokeService } from '../service/GuozaokeService';
 
+function previewImageUrls(value: string): Array<string> {
+  const urls: Array<string> = [];
+  const pattern = /!?(?:\[[^\]]*\])\((https?:\/\/[^)\s]+)\)/gi;
+  let match: RegExpExecArray | null = pattern.exec(value);
+  while (match) {
+    urls.push(match[1]);
+    match = pattern.exec(value);
+  }
+  return urls;
+}
+
+function previewText(value: string): string {
+  return value.replace(/!?(?:\[[^\]]*\])\(https?:\/\/[^)\s]+\)/gi, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 @Entry
 @Component
 struct NewTopicPage {
@@ -113,7 +128,10 @@ struct NewTopicPage {
             Column() {
               Text(this.title.trim()).fontSize(21).fontWeight(FontWeight.Bold).fontColor('#202124').width('100%').margin({ bottom: 14 })
               Text(this.nodeTitle.length > 0 ? this.nodeTitle : '未选择节点').fontSize(12).fontColor(this.themeColor).width('100%').margin({ bottom: 18 })
-              Text(this.content.trim()).fontSize(16).lineHeight(25).fontColor('#3C4043').width('100%').textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+              Text(previewText(this.content)).fontSize(16).lineHeight(25).fontColor('#3C4043').width('100%').textSelectable(TextSelectableMode.SELECTABLE_FOCUSABLE)
+              ForEach(previewImageUrls(this.content), (url: string) => {
+                Image(url).width('100%').height(220).objectFit(ImageFit.Contain).margin({ top: 12 }).borderRadius(6).backgroundColor('#F7F8FA')
+              }, (url: string) => url)
             }.width('100%').padding(20)
           }.layoutWeight(1).width('100%')
           Row() {
