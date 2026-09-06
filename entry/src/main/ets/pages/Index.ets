@@ -93,11 +93,11 @@ struct Index {
   @Builder
   startupLoader() {
     Column() {
-      Image($r('app.media.ic_hot_dry_noodles')).width(96).height(96)
-        .objectFit(ImageFit.Contain)
-        // Tint every SVG path with the selected theme so the loader follows
-        // custom themes instead of retaining the default green palette.
-        .fillColor(this.themeColor)
+      Stack() {
+        Image($r('app.media.ic_hot_dry_noodles_base')).width(96).height(96)
+          .objectFit(ImageFit.Contain).fillColor(this.themeColor)
+        Image($r('app.media.ic_hot_dry_noodles')).width(96).height(96).objectFit(ImageFit.Contain)
+      }.width(96).height(96)
       Text('过早客').fontSize(21).fontWeight(FontWeight.Medium).fontColor('#3C4043').margin({ top: 18 })
       Text('正在加载社区内容').fontSize(13).fontColor('#7B8794').margin({ top: 6 })
       LoadingProgress().width(24).height(24).color(this.themeColor).margin({ top: 20 })
