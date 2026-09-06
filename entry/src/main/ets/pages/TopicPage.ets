@@ -135,10 +135,11 @@ function contentParts(value: string): Array<ContentPart> {
       (_all: string, url: string, label: string) => {
       const cleanLabel: string = htmlText(label);
         // H5 represents an image as an anchor whose visible label is
-        // “[图片]”. The native detail page renders the image separately,
-        // so discard only this generated placeholder link to avoid showing
-        // both the image and “[图片]” text. Normal links remain untouched.
-        if (cleanLabel.length === 0 || (isImagePlaceholder(cleanLabel) && isImageUrl(url))
+        // “[图片]”, “首页图” or “详情图”. The native detail page renders the
+        // image separately, so discard any generated image anchor regardless
+        // of its visible label. Normal text links remain untouched.
+        const imageAnchor: boolean = isImageUrl(url) || /<img\b/i.test(label);
+        if (cleanLabel.length === 0 || imageAnchor
           || /^(?:#|\/favorite|\/unfavorite|\/vote)/i.test(url) || cleanLabel === '编辑主题') return '';
         const profile = url.match(/^\/u\/([A-Za-z0-9_-]+)(?:[?#].*)?$/i);
         if (profile && profile.length > 1) return `[${cleanLabel}](native-profile://${profile[1]})`;
