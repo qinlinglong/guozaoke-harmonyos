@@ -698,7 +698,7 @@ struct TopicPage {
     } catch (_) { this.notify('无法打开链接'); }
   }
 
-  private openContentLink(url: string): void {
+  private openContentLink(url: string, label: string = ''): void {
     if (url.startsWith('native-profile://')) {
       const username = url.substring('native-profile://'.length);
       if (username.length > 0) setTimeout(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username } }), 80);
@@ -709,7 +709,8 @@ struct TopicPage {
     const path = site && site.length > 1 ? (site[1] || '/') : '';
     const topic = path.match(/^\/t\/(\d+)(?:\/)?$/i);
     if (topic && topic.length > 1) {
-      setTimeout(() => router.pushUrl({ url: 'pages/TopicPage', params: { id: topic[1], title: '主题详情' } }), 80);
+      const title = label.replace(/^\s+|\s+$/g, '').replace(/\s+/g, ' ') || '主题详情';
+      setTimeout(() => router.pushUrl({ url: 'pages/TopicPage', params: { id: topic[1], title } }), 80);
       return;
     }
     const profile = path.match(/^\/u\/([A-Za-z0-9_-]+)(?:\/)?$/i);
@@ -849,7 +850,7 @@ struct TopicPage {
             const username = part.url.substring('native-profile://'.length);
             if (username.length > 0) setTimeout(() => router.pushUrl({ url: 'pages/ProfilePage', params: { username } }), 80);
           } else if (part.url.length > 0) {
-            this.openContentLink(part.url);
+            this.openContentLink(part.url, part.text);
           }
         })
       }, (part: ContentPart, index: number) => `${index}-${part.text}-${part.url}`)
