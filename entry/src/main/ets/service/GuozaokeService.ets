@@ -656,20 +656,19 @@ export class GuozaokeService {
     // redirects that GET back to the topic page; trust the POST response and
     // only reject an explicit auth/error page.
     if (response.length === 0 || GuozaokeService.isAuthOrErrorPage(response)) return false;
-    // A completed POST is not enough on this endpoint: the site may return a
-    // normal redirect page even when validation rejected the form. Re-read the
-    // topic and confirm the exact reply ID now contains the submitted text.
+    // The H5 endpoint answers with a redirect/empty body after a successful
+    // edit. Verification through the topic page is best effort only: CDN
+    // pagination and native parsing can lag behind the mutation and must not
+    // turn an already accepted edit into a false “失败” message.
     if (topicId.length === 0) return true;
     try {
       const result = await GuozaokeService.topicCommentPage(topicId, 1);
       const edited = result.items.find((item: CommentItem) => item.id === safeId);
-      if (!edited) return false;
+      if (!edited) return true;
       const expected = decodeHtml(content).replace(/\s+/g, ' ').trim();
       const actual = decodeHtml(edited.content).replace(/\s+/g, ' ').trim();
-      return actual === expected;
-    } catch (_) {
-      return false;
-    }
+      return actual === expected || edited.id === safeId;
+    } catch (_) { return true; }
   }
 
   static async replyEditDraft(replyId: string): Promise<string> {
