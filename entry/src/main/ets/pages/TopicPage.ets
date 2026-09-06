@@ -7,7 +7,6 @@ import { CommentItem } from '../model/CommentItem';
 import { TopicDetailData } from '../model/TopicDetailData';
 import { ContentPart } from '../model/ContentPart';
 import { CommentListResult } from '../model/CommentListResult';
-import { setEditingKeepScreenOn } from '../util/ThemeUtil';
 
 // Keep the H5 vote result stable while navigating away and back to a detail
 // page. The server remains authoritative; this only bridges pages when the
@@ -563,7 +562,6 @@ struct TopicPage {
   }
 
   private openComposer(target: string = ''): void {
-    this.setKeepScreenOn(true);
     this.editingReplyId = '';
     this.replyTarget = target;
     if (target.length > 0) this.comment = `@${target} `;
@@ -578,7 +576,6 @@ struct TopicPage {
   }
 
   private dismissComposer(clearDraft: boolean = false): void {
-    this.setKeepScreenOn(false);
     try { this.getUIContext().getFocusController().clearFocus(); } catch (_) {}
     this.composerOpen = false;
     this.commentPreviewing = false;
@@ -591,7 +588,6 @@ struct TopicPage {
 
   private async openReplyEditor(item: CommentItem): Promise<void> {
     if (!item.editable || item.id.length === 0) return;
-    this.setKeepScreenOn(true);
     this.editingReplyId = item.id;
     this.replyTarget = '';
     this.commentPreviewing = false;
@@ -610,12 +606,6 @@ struct TopicPage {
     this.focusComposer();
   }
 
-  private setKeepScreenOn(enabled: boolean): void {
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      setEditingKeepScreenOn(context, enabled);
-    } catch (_) { }
-  }
 
   private async chooseCommentImage(): Promise<void> {
     if (this.uploadingImage) return;

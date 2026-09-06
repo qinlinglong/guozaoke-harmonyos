@@ -2,7 +2,6 @@ import { router } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { picker } from '@kit.CoreFileKit';
 import { GuozaokeService } from '../service/GuozaokeService';
-import { setEditingKeepScreenOn } from '../util/ThemeUtil';
 
 class PreviewPart {
   kind: string = 'text';
@@ -65,7 +64,6 @@ struct NewTopicPage {
   @State editing: boolean = false;
   @State previewing: boolean = false;
   aboutToAppear(): void {
-    this.setKeepScreenOn(true);
     try {
       const params = router.getParams() as Record<string, string>;
       this.nodeCode = params && params.nodeCode ? params.nodeCode : '';
@@ -75,15 +73,6 @@ struct NewTopicPage {
       this.editId = params && params.editId ? params.editId : '';
       this.editing = this.editId.length > 0 || params.edit === '1';
     } catch (_) {}
-  }
-  aboutToDisappear(): void {
-    this.setKeepScreenOn(false);
-  }
-  private setKeepScreenOn(enabled: boolean): void {
-    try {
-      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-      setEditingKeepScreenOn(context, enabled);
-    } catch (_) { }
   }
   private async openMarkdownHelp(): Promise<void> {
     try {

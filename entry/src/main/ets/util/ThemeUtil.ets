@@ -25,11 +25,3 @@ export async function applySystemTheme(context: common.UIAbilityContext, value: 
 // Keep the display awake only for active editing/upload flows. Callers must
 // restore false when leaving the flow so normal system screen timeout remains
 // in effect for ordinary browsing.
-export async function setEditingKeepScreenOn(context: common.UIAbilityContext, enabled: boolean): Promise<void> {
-  try {
-    const mainWindow: window.Window = await window.getLastWindow(context);
-    mainWindow.setKeepScreenOn(enabled);
-  } catch (_) {
-    // Screen policy is best-effort and must never interrupt editing.
-  }
-}
