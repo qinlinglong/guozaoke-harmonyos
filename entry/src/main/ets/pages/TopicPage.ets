@@ -928,7 +928,11 @@ struct TopicPage {
                 }.width('100%').margin({ top: 4 })
               }.layoutWeight(1).alignItems(HorizontalAlign.Start).margin({ left: 10 })
             }.width('100%').padding(14).backgroundColor(Color.White).borderRadius(8).margin({ bottom: 8 })
-          }, (item: CommentItem, index: number) => `${item.id}-${index}`)
+          // Include the local edit revision in the key. ArkUI otherwise keeps
+          // the existing ForEach node for a stable reply id and can continue
+          // displaying the old builder output even after the backing object
+          // and local overlay have changed.
+          }, (item: CommentItem, index: number) => `${item.id}-${index}-${this.replyRenderVersion}`)
           if (this.commentsLoadingMore || this.commentsHasMore) {
             Row() {
               if (this.commentsLoadingMore) { LoadingProgress().width(18).height(18).color(this.themeColor) }
