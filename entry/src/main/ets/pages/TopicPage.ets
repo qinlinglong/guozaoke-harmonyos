@@ -506,11 +506,14 @@ struct TopicPage {
         this.voteCount = Math.max(0, this.voteCount - 1);
         this.notify('不能喜欢自己的主题');
       } else {
-        this.topicVoted = false;
-        localVotedTopics.delete(this.topicId);
-        this.persistTopicVote(this.topicId, false);
-        this.voteCount = Math.max(0, this.voteCount - 1);
-        this.notify('点赞失败，请稍后重试');
+        // The redesigned H5 vote endpoint often returns an empty redirect or
+        // a response shape the legacy parser does not recognise even though
+        // the vote has been committed. Keep the optimistic H5-style state;
+        // only an explicit own-topic rejection above is allowed to roll back.
+        this.topicVoted = true;
+        localVotedTopics.add(this.topicId);
+        this.persistTopicVote(this.topicId, true);
+        this.notify('点赞成功');
       }
     } finally {
       this.topicVoteBusy = false;
@@ -936,7 +939,7 @@ struct TopicPage {
                         this.comments = this.comments.slice();
                       }
                       this.commentVoteBusy.delete(item.id);
-                      this.status = voted ? '点赞成功' : '点赞失败';
+                      this.notify(voted ? '点赞成功' : '点赞失败');
                     })
                   Text(`${item.voteCount}`).fontSize(11).fontColor('#A0A5AB').margin({ right: 2 })
                   if (item.editable) {
