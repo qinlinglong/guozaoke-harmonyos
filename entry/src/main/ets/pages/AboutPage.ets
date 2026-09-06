@@ -43,7 +43,7 @@ struct AboutPage {
           Column() {
             Image($r('app.media.pixel_icon')).width(84).height(84).borderRadius(18).margin({ bottom: 14 })
             Text('过早客').fontSize(23).fontWeight(FontWeight.Bold).fontColor('#30343B')
-            Text('HarmonyOS 原生客户端 · v1.0.1').fontSize(13).fontColor('#7B8794').margin({ top: 7 })
+            Text('HarmonyOS 原生客户端 · v1.0.4').fontSize(13).fontColor('#7B8794').margin({ top: 7 })
             Text('社区内容与账号服务来自 guozaoke.com').fontSize(12).fontColor('#9AA0A6').margin({ top: 5 })
           }.width('100%').height(230).justifyContent(FlexAlign.Center)
           this.actionRow('检查新版本', '前往 GitHub Releases', () => this.openExternal(`${PROJECT_URL}/releases`))
