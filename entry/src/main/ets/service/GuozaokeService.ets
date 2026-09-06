@@ -690,18 +690,26 @@ export class GuozaokeService {
   static async editTopic(id: string, title: string, content: string): Promise<boolean> {
     const safeId = id.replace(/[^0-9]/g, '');
     if (safeId.length === 0) return false;
-    // The redesigned site uses /t/edit/:id. The old /t/:id/edit path can
-    // return a normal topic page without applying the submitted form, which
-    // made the native editor report success while a refresh showed old data.
-    const editPath = `/t/edit/${safeId}`;
-    const token = await GuozaokeService.xsrfFor(editPath);
-    if (token.length === 0) return false;
-    const form = `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
-    const response = await GuozaokeService.post(editPath, form, `${BASE_URL}${editPath}`);
-    // A successful edit redirects to the topic page. Do not re-fetch the edit
-    // form here: the redesigned site redirects direct GETs of that form back
-    // to the topic page, which made a real edit look like a failed save.
-    return response.length > 0 && !GuozaokeService.isAuthOrErrorPage(response);
+    // Both route spellings have existed in the H5 client. Try the redesigned
+    // route first, then the legacy route when the response does not contain
+    // the submitted title. This prevents a false “saved” result when one
+    // route merely returns the topic page without applying the title field.
+    const editPaths: Array<string> = [`/t/edit/${safeId}`, `/t/${safeId}/edit`];
+    let accepted: boolean = false;
+    for (let index = 0; index < editPaths.length; index++) {
+      const editPath: string = editPaths[index];
+      try {
+        const token = await GuozaokeService.xsrfFor(editPath);
+        if (token.length === 0) continue;
+        const form = `title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}&_xsrf=${encodeURIComponent(token)}`;
+        const response = await GuozaokeService.post(editPath, form, `${BASE_URL}${editPath}`);
+        if (response.length === 0 || GuozaokeService.isAuthOrErrorPage(response)) continue;
+        accepted = true;
+        const visible = decodeHtml(response);
+        if (visible.includes(title)) return true;
+      } catch (_) {}
+    }
+    return accepted;
   }
 
   static async uploadImage(uri: string, apiKey: string): Promise<string> {
