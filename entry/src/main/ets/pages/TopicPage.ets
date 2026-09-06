@@ -591,6 +591,7 @@ struct TopicPage {
 
   private async openReplyEditor(item: CommentItem): Promise<void> {
     if (!item.editable || item.id.length === 0) return;
+    this.setKeepScreenOn(true);
     this.editingReplyId = item.id;
     this.replyTarget = '';
     this.commentPreviewing = false;
