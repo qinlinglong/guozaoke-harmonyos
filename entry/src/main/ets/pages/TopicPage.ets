@@ -519,6 +519,15 @@ struct TopicPage {
       const requestOk = editing ? await GuozaokeService.editComment(this.editingReplyId, content, this.topicId) : await GuozaokeService.comment(this.topicId, content);
       let ok: boolean = requestOk;
       let refreshed = false;
+      if (editing) {
+        // The H5 edit form commonly responds with an empty redirect body even
+        // after accepting the POST. Do not gate the native UI on that body:
+        // show the submitted text at once and let the later GET only verify
+        // it. This also avoids losing the edit when the response classifier
+        // cannot distinguish a redirect from an error page.
+        this.showEditedComment(editingId, content, previousEditedIndex, previousComments);
+        ok = true;
+      }
       // A form POST can be applied successfully while the H5 redirect body
       // is classified as an error by the native client. Verify the new reply
       // in the refreshed list before showing a false failure message.
