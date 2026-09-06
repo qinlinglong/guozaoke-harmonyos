@@ -283,10 +283,12 @@ struct TopicPage {
   @StorageLink('commentsOrderDesc') commentsOrderDesc: boolean = false;
   @StorageLink('imageBedApiKey') imageBedApiKey: string = '';
   @StorageLink('likedTopicIds') likedTopicIds: string = '';
+  @StorageLink('likedReplyIds') likedReplyIds: string = '';
   @State uploadingImage: boolean = false;
   @State commentPreviewing: boolean = false;
   @State editingReplyId: string = '';
   @State replyRenderVersion: number = 0;
+  @State statusVersion: number = 0;
   private editedReplyContents: Map<string, string> = new Map<string, string>();
   private loadedOnce: boolean = false;
 
@@ -374,14 +376,50 @@ struct TopicPage {
   }
 
   private notify(message: string, duration: number = 2200): void {
+    const version = this.statusVersion + 1;
+    this.statusVersion = version;
     this.status = message;
     setTimeout(() => {
-      if (this.status === message) this.status = '';
+      if (this.statusVersion === version) this.status = '';
     }, duration);
   }
 
   private markEditable(items: Array<CommentItem>): Array<CommentItem> {
+    items.forEach((item: CommentItem) => {
+      if (this.hasPersistedReplyVote(item.id)) item.voted = true;
+    });
     return items;
+  }
+
+  private hasPersistedReplyVote(id: string): boolean {
+    return this.likedReplyIds.split(',').some((value: string) => value === id);
+  }
+
+  private persistReplyVote(id: string, voted: boolean): void {
+    const ids = this.likedReplyIds.split(',').filter((value: string) => value.length > 0 && value !== id);
+    if (voted) ids.push(id);
+    this.likedReplyIds = ids.join(',');
+  }
+
+  private updateReplyVote(index: number, voted: boolean, voteCount: number): void {
+    if (index < 0 || index >= this.comments.length) return;
+    const source = this.comments[index];
+    const replacement = new CommentItem();
+    replacement.id = source.id;
+    replacement.author = source.author;
+    replacement.time = source.time;
+    replacement.floor = source.floor;
+    replacement.avatar = source.avatar;
+    replacement.content = source.content;
+    replacement.editUrl = source.editUrl;
+    replacement.editable = source.editable;
+    replacement.voteUrl = source.voteUrl;
+    replacement.voted = voted;
+    replacement.voteCount = Math.max(0, voteCount);
+    const next = this.comments.slice();
+    next[index] = replacement;
+    this.comments = next;
+    this.replyRenderVersion += 1;
   }
 
   private showEditedComment(id: string, content: string, fallbackIndex: number, previous: Array<CommentItem>): void {
@@ -929,17 +967,25 @@ struct TopicPage {
                       .padding({ left: 10, right: 6, top: 4, bottom: 4 }).onClick(async () => {
                       if (item.voted || item.voteUrl.length === 0 || this.commentVoteBusy.has(item.id)) return;
                       this.commentVoteBusy.add(item.id);
-                      item.voted = true;
-                      item.voteCount += 1;
-                      this.comments = this.comments.slice();
-                      const voted = await GuozaokeService.vote(item.voteUrl);
-                      if (!voted) {
-                        item.voted = false;
-                        item.voteCount = Math.max(0, item.voteCount - 1);
-                        this.comments = this.comments.slice();
-                      }
+                      const previousCount = item.voteCount;
+                      this.updateReplyVote(index, true, previousCount + 1);
+                      this.persistReplyVote(item.id, true);
+                      const result = await GuozaokeService.voteResult(item.voteUrl);
                       this.commentVoteBusy.delete(item.id);
-                      this.notify(voted ? '点赞成功' : '点赞失败');
+                      if (result.alreadyVoted) {
+                        this.updateReplyVote(index, true, previousCount);
+                        this.notify('已经点过赞了');
+                      } else if (result.ownTopic) {
+                        this.updateReplyVote(index, false, previousCount);
+                        this.persistReplyVote(item.id, false);
+                        this.notify('不能给自己的回复点赞');
+                      } else {
+                        // H5 may return an empty redirect after accepting the
+                        // vote. Keep the optimistic state unless rejection is
+                        // explicit, matching the website's immediate feedback.
+                        this.updateReplyVote(index, true, previousCount + 1);
+                        this.notify('点赞成功');
+                      }
                     })
                   Text(`${item.voteCount}`).fontSize(11).fontColor('#A0A5AB').margin({ right: 2 })
                   if (item.editable) {

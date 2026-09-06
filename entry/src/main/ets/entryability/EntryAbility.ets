@@ -66,6 +66,7 @@ export default class EntryAbility extends UIAbility {
       PersistentStorage.persistProp('themeColor', DEFAULT_THEME_COLOR);
       PersistentStorage.persistProp('selfProfileCache', '');
       PersistentStorage.persistProp('likedTopicIds', '');
+      PersistentStorage.persistProp('likedReplyIds', '');
       AppStorage.setOrCreate('safeAreaTop', 0);
       AppStorage.setOrCreate('safeAreaBottom', 0);
       const mainWindow: window.Window = windowStage.getMainWindowSync();

@@ -550,6 +550,10 @@ export class GuozaokeService {
         item.voteCount = voteCount && voteCount.length > 1 ? Number(voteCount[1]) : 0;
         const replyId = item.voteUrl.match(/[?&]reply_id=(\d+)/i);
         if (replyId) item.id = replyId[1];
+        const voteContext = vote[0] + block.substring(Math.max(0, block.indexOf(vote[0]) - 180), Math.min(block.length, block.indexOf(vote[0]) + vote[0].length + 240));
+        item.voted = /(?:已赞|取消赞|感谢已表示|已感谢|already[_-]?voted|unvote)/i.test(voteContext) ||
+          /data-(?:type|voted|status)=["'](?:unvote|voted|1|true)["']/i.test(vote[0]) ||
+          /class=["'][^"']*(?:voted|is-voted|active)[^"']*["']/i.test(vote[0]);
       }
       // The redesigned site labels this action simply “编辑”. Its URL holds
       // the global reply id; the surrounding element id may only be a floor
