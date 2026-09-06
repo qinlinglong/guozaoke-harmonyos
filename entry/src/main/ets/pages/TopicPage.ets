@@ -381,6 +381,32 @@ struct TopicPage {
     return items;
   }
 
+  private showEditedComment(id: string, content: string, fallbackIndex: number, previous: Array<CommentItem>): void {
+    let index = this.comments.findIndex((item: CommentItem) => item.id === id);
+    let source: CommentItem | undefined = index >= 0 ? this.comments[index] : undefined;
+    if (!source && fallbackIndex >= 0 && fallbackIndex < previous.length) {
+      index = Math.min(fallbackIndex, this.comments.length);
+      source = previous[fallbackIndex];
+    }
+    if (!source) return;
+    const replacement = new CommentItem();
+    replacement.id = source.id;
+    replacement.author = source.author;
+    replacement.time = source.time;
+    replacement.floor = source.floor;
+    replacement.avatar = source.avatar;
+    replacement.editUrl = source.editUrl;
+    replacement.editable = source.editable;
+    replacement.voteCount = source.voteCount;
+    replacement.voteUrl = source.voteUrl;
+    replacement.voted = source.voted;
+    replacement.content = content;
+    const next = this.comments.slice();
+    if (index >= 0 && index < next.length) next[index] = replacement;
+    else next.splice(Math.min(index, next.length), 0, replacement);
+    this.comments = next;
+  }
+
   private async toggleFavorite(): Promise<void> {
     if (this.favoriteBusy) return;
     if (this.canEdit) {
@@ -504,40 +530,25 @@ struct TopicPage {
           ok = expected.length > 0 && commentResult.items.some((item: CommentItem) =>
             htmlText(item.content, false).replace(/\s+/g, ' ').includes(expected));
         }
-        this.markEditable(commentResult.items);
-        this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
-        if (!editing) this.commentPage = 1;
-        this.commentsHasMore = commentResult.hasMore;
+        if (!editing) {
+          this.markEditable(commentResult.items);
+          this.comments = this.commentsOrderDesc ? commentResult.items.slice().reverse() : commentResult.items;
+          this.commentPage = 1;
+          this.commentsHasMore = commentResult.hasMore;
+        }
         if (editing) {
           // The first CDN read can still contain the previous reply. Apply the
           // accepted edit locally immediately. If pagination/CDN lag omits
           // the edited item, retain it at its previous position instead of
           // making the user leave and re-enter the topic.
-          let localEdited = this.comments.find((item: CommentItem) => item.id === this.editingReplyId);
-          if (!localEdited && previousEditedIndex >= 0) {
-            localEdited = previousComments[previousEditedIndex];
-            const nextComments = this.comments.slice();
-            nextComments.splice(Math.min(previousEditedIndex, nextComments.length), 0, localEdited);
-            this.comments = nextComments;
-          }
-          if (localEdited) {
-            localEdited.content = content;
-            this.comments = this.comments.slice();
-          }
+          this.showEditedComment(this.editingReplyId, content, previousEditedIndex, previousComments);
         }
       } catch (_) { }
       if (ok) {
         if (editing) {
-          const localEdited = this.comments.find((item: CommentItem) => item.id === editingId);
-          if (localEdited) localEdited.content = content;
-          else if (previousEditedIndex >= 0) {
-            const retained = previousComments[previousEditedIndex];
-            retained.content = content;
-            const nextComments = this.comments.slice();
-            nextComments.splice(Math.min(previousEditedIndex, nextComments.length), 0, retained);
-            this.comments = nextComments;
-          }
-          this.comments = this.comments.slice();
+          // Replace the item with a new object so ArkUI's ForEach observes the
+          // edit immediately; do not wait for a detail-page reload.
+          this.showEditedComment(editingId, content, previousEditedIndex, previousComments);
           // The H5 endpoint can be acknowledged before the CDN/detail page
           // exposes the new body. Re-read the page after a short delay and
           // merge only the edited item so pagination and the optimistic UI are
