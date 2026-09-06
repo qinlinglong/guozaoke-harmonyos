@@ -271,6 +271,7 @@ struct TopicPage {
   @State topicVoteUrl: string = '';
   @State topicVoted: boolean = false;
   @State topicVoteBusy: boolean = false;
+  private commentVoteBusy: Set<string> = new Set<string>();
   @State ownTopic: boolean = false;
   @State sending: boolean = false;
   @State favoriteBusy: boolean = false;
@@ -391,11 +392,18 @@ struct TopicPage {
       return;
     }
     this.favoriteBusy = true;
-    const ok = this.favorite ? await GuozaokeService.unfavorite(this.topicId) : await GuozaokeService.favorite(this.topicId);
+    const previous = this.favorite;
+    // H5 flips the control immediately and reconciles the request in the
+    // background. Mirror that feedback while retaining rollback on failure.
+    this.favorite = !previous;
+    this.favoriteCount = Math.max(0, this.favoriteCount + (this.favorite ? 1 : -1));
+    this.comments = this.comments.slice();
+    const ok = previous ? await GuozaokeService.unfavorite(this.topicId) : await GuozaokeService.favorite(this.topicId);
     if (ok) {
-      this.favorite = !this.favorite;
       this.notify(this.favorite ? '已加入收藏' : '已取消收藏');
     } else {
+      this.favorite = previous;
+      this.favoriteCount = Math.max(0, this.favoriteCount + (previous ? 1 : -1));
       this.notify('操作失败，请稍后重试');
     }
     this.favoriteBusy = false;
@@ -421,20 +429,30 @@ struct TopicPage {
       return;
     }
     this.topicVoteBusy = true;
+    // Update the native button/count before the network round trip, matching
+    // the H5 vote control. Revert only when the endpoint explicitly rejects.
+    this.topicVoted = true;
+    localVotedTopics.add(this.topicId);
+    this.voteCount += 1;
     try {
       const result = await GuozaokeService.voteResult(this.topicVoteUrl);
       if (result.success) {
-        this.topicVoted = true;
-        localVotedTopics.add(this.topicId);
-        this.voteCount += 1;
         this.notify('点赞成功');
       } else if (result.alreadyVoted) {
-        this.topicVoted = true;
-        localVotedTopics.add(this.topicId);
+        // The optimistic state is already the correct final state.
+        this.voteCount = Math.max(0, this.voteCount - 1);
         this.notify('您已经点过赞了');
       } else if (result.ownTopic) {
+        this.topicVoted = false;
+        localVotedTopics.delete(this.topicId);
+        this.voteCount = Math.max(0, this.voteCount - 1);
         this.notify('不能喜欢自己的主题');
-      } else this.notify('点赞失败，请稍后重试');
+      } else {
+        this.topicVoted = false;
+        localVotedTopics.delete(this.topicId);
+        this.voteCount = Math.max(0, this.voteCount - 1);
+        this.notify('点赞失败，请稍后重试');
+      }
     } finally {
       this.topicVoteBusy = false;
     }
@@ -826,11 +844,20 @@ struct TopicPage {
                     .onClick(() => {
                       this.openComposer(item.author.length > 0 ? item.author : `用户 ${index + 1}`);
                     })
-                  Text(item.voted ? '已赞' : '赞').fontSize(12).fontColor(item.voted ? '#F59E0B' : '#7B8794')
-                    .padding({ left: 10, right: 6, top: 4, bottom: 4 }).onClick(async () => {
-                      if (item.voted || item.voteUrl.length === 0) return;
+                    Text(item.voted ? '已赞' : '赞').fontSize(12).fontColor(item.voted ? '#F59E0B' : '#7B8794')
+                      .padding({ left: 10, right: 6, top: 4, bottom: 4 }).onClick(async () => {
+                      if (item.voted || item.voteUrl.length === 0 || this.commentVoteBusy.has(item.id)) return;
+                      this.commentVoteBusy.add(item.id);
+                      item.voted = true;
+                      item.voteCount += 1;
+                      this.comments = this.comments.slice();
                       const voted = await GuozaokeService.vote(item.voteUrl);
-                      if (voted) { item.voted = true; item.voteCount += 1; this.comments = this.comments.slice(); }
+                      if (!voted) {
+                        item.voted = false;
+                        item.voteCount = Math.max(0, item.voteCount - 1);
+                        this.comments = this.comments.slice();
+                      }
+                      this.commentVoteBusy.delete(item.id);
                       this.status = voted ? '点赞成功' : '点赞失败';
                     })
                   Text(`${item.voteCount}`).fontSize(11).fontColor('#A0A5AB').margin({ right: 2 })
