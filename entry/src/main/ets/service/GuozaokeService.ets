@@ -465,6 +465,9 @@ export class GuozaokeService {
     const detail: TopicDetailData = new TopicDetailData();
     const headerMatch = html.match(/<div[^>]*class=["'][^"']*topic-detail[^"']*["'][\s\S]*?<div[^>]*class=["'][^"']*ui-header[^"']*["'][\s\S]*?(?=<div[^>]*class=["'][^"']*ui-content)/i);
     const header: string = headerMatch ? headerMatch[0] : html;
+    detail.title = firstMatch(html, /<h1[^>]*class=["'][^"']*(?:topic-title|title)[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i) ||
+      firstMatch(html, /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["'][^>]*>/i) ||
+      firstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i).replace(/\s*(?:[-|｜]\s*)?过早客.*$/i, '').trim();
     const avatarTag = header.match(/<img[^>]*class=["'][^"']*avatar[^"']*["'][^>]*>/i);
     detail.avatar = avatarTag ? avatarFromHtml(avatarTag[0]) : '';
     detail.author = firstMatch(header,

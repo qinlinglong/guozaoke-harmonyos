@@ -1,4 +1,5 @@
 export class TopicDetailData {
+  title: string = '';
   content: string = '';
   author: string = '';
   avatar: string = '';

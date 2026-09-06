@@ -334,6 +334,7 @@ struct TopicPage {
         topic = await GuozaokeService.topicDetail(this.topicId);
       }
       this.body = topic.content;
+      if (topic.title.length > 0) this.title = topic.title;
       this.author = topic.author;
       this.avatar = topic.avatar;
       this.nodeTitle = topic.nodeTitle;
