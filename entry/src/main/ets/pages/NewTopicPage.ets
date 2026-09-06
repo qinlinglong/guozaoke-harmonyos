@@ -12,17 +12,30 @@ class PreviewPart {
   }
 }
 
+function isPreviewImageUrl(value: string): boolean {
+  return /\.(?:png|jpe?g|gif|webp|bmp|svg)(?:[?#].*)?$/i.test(value)
+    || /(?:article\.biliimg\.com|bfs\/new_dyn|static\.guozaoke\.com)/i.test(value);
+}
+
 function previewParts(value: string): Array<PreviewPart> {
   const parts: Array<PreviewPart> = [];
   // Support the uploader's linked-image form `[![](url)](url)` as well as
   // ordinary Markdown `![alt](url)`, keeping surrounding text in place.
-  const pattern = /\[\s*!\[\]\((https?:\/\/[^)\s]+)\)\]\((?:https?:\/\/[^)\s]+)\)|!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi;
+  const pattern = /\[\s*!\[\]\((https?:\/\/[^)\s]+)\)\]\((?:https?:\/\/[^)\s]+)\)|!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)|\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi;
   let cursor: number = 0;
   let match: RegExpExecArray | null = pattern.exec(value);
   while (match) {
     const before: string = value.substring(cursor, match.index);
+    const imageUrl: string = match[1] || match[2] || match[3];
+    if (!isPreviewImageUrl(imageUrl)) {
+      if (before.trim().length > 0) parts.push(new PreviewPart('text', before.trim()));
+      parts.push(new PreviewPart('text', match[0]));
+      cursor = match.index + match[0].length;
+      match = pattern.exec(value);
+      continue;
+    }
     if (before.trim().length > 0) parts.push(new PreviewPart('text', before.trim()));
-    parts.push(new PreviewPart('image', match[1] || match[2]));
+    parts.push(new PreviewPart('image', imageUrl));
     cursor = match.index + match[0].length;
     match = pattern.exec(value);
   }
