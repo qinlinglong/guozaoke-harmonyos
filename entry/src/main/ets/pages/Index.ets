@@ -95,6 +95,8 @@ struct Index {
     Column() {
       Stack() {
         Image($r('app.media.ic_hot_dry_noodles_base')).width(96).height(96)
+          .objectFit(ImageFit.Contain).fillColor(this.themeColor)
+        Image($r('app.media.ic_hot_dry_noodles_steam')).width(96).height(96)
           .objectFit(ImageFit.Contain)
         Image($r('app.media.ic_hot_dry_noodles_table')).width(96).height(96)
           .objectFit(ImageFit.Contain)
