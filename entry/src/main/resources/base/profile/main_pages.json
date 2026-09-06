@@ -10,6 +10,7 @@
     "pages/SearchPage",
     "pages/NotificationsPage",
     "pages/SettingsPage",
+    "pages/BilibiliLoginPage",
     "pages/NewTopicPage",
     "pages/AboutPage",
     "pages/SettingsEditPage",

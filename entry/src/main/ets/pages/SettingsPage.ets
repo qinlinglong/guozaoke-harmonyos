@@ -1,6 +1,7 @@
 import { router } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { applySystemTheme, BLUE_THEME_COLOR, DEFAULT_THEME_COLOR, normalizeThemeColor, PINK_THEME_COLOR } from '../util/ThemeUtil';
+import { GuozaokeService } from '../service/GuozaokeService';
 
 @Entry
 @Component
@@ -80,6 +81,10 @@ struct SettingsPage {
         .width('100%').height(60).padding({ left: 16, right: 16 }).backgroundColor(Color.White)
         .border({ width: { top: 1 }, color: '#ECEEF0' }).onClick(() => this.openImageBedHelp())
       Text('用于上传主题图片的图床配置').fontSize(12).fontColor('#999999').margin({ top: 10, left: 16, right: 16 })
+      Row() { Text('Bilibili 图床').fontSize(16).fontColor('#444444'); Blank(); Text(GuozaokeService.biliLoggedIn() ? '已登录' : '未登录').fontSize(14).fontColor(GuozaokeService.biliLoggedIn() ? this.themeColor : '#999999'); Text('›').fontSize(24).fontColor('#BBBBBB').margin({ left: 8 }); }
+        .width('100%').height(60).padding({ left: 16, right: 16 }).margin({ top: 10 }).backgroundColor(Color.White)
+        .onClick(() => setTimeout(() => router.pushUrl({ url: 'pages/BilibiliLoginPage' }), 80))
+      Text('登录后，发帖和回复图片优先上传到 Bilibili').fontSize(12).fontColor('#999999').margin({ top: 10, left: 16, right: 16 })
       Blank()
     }.width('100%').height('100%').padding({ top: this.safeAreaTop, bottom: this.safeAreaBottom }).backgroundColor('#F5F5F5')
       .hitTestBehavior(HitTestMode.BLOCK_HIERARCHY)

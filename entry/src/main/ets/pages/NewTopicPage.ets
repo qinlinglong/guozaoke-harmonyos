@@ -40,7 +40,7 @@ struct NewTopicPage {
 
   private async chooseAndUploadImage(): Promise<void> {
     if (this.uploading) return;
-    if (this.apiKey.trim().length === 0) { this.status = '请先到设置里添加 sm.ms 图床 API Key'; return; }
+    if (!GuozaokeService.biliLoggedIn() && this.apiKey.trim().length === 0) { this.status = '请先在设置中登录 Bilibili 或配置 sm.ms'; return; }
     this.uploading = true;
     this.status = '正在选择图片…';
     try {
@@ -51,8 +51,9 @@ struct NewTopicPage {
       const uri = result.photoUris.length > 0 ? result.photoUris[0] : '';
       if (uri.length === 0) { this.status = ''; this.uploading = false; return; }
       this.status = '正在上传图片…';
-      const url = await GuozaokeService.uploadImage(uri, this.apiKey);
-      if (url.length === 0) { this.status = '图片上传失败，请检查 sm.ms API Key'; this.uploading = false; return; }
+      const useBili = GuozaokeService.biliLoggedIn();
+      const url = useBili ? await GuozaokeService.uploadBilibiliImage(uri) : await GuozaokeService.uploadImage(uri, this.apiKey);
+      if (url.length === 0) { this.status = useBili ? 'Bilibili 图片上传失败，请重新登录' : '图片上传失败，请检查 sm.ms API Key'; this.uploading = false; return; }
       const markdown = `[![](${url})](${url})`;
       this.content = this.content.trim().length > 0 ? `${this.content.trim()}\n${markdown}` : markdown;
       this.status = '图片已插入';

@@ -77,6 +77,22 @@ function asciiBytes(value: string): Uint8Array {
   return result;
 }
 
+function base64Encode(bytes: Uint8Array): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let output = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = view.getUint8(i);
+    const b = i + 1 < bytes.length ? view.getUint8(i + 1) : 0;
+    const c = i + 2 < bytes.length ? view.getUint8(i + 2) : 0;
+    output += chars.charAt((a >> 2) & 63);
+    output += chars.charAt(((a << 4) | (b >> 4)) & 63);
+    output += i + 1 < bytes.length ? chars.charAt(((b << 2) | (c >> 6)) & 63) : '=';
+    output += i + 2 < bytes.length ? chars.charAt(c & 63) : '=';
+  }
+  return output;
+}
+
 function normalizeImageUrl(value: string): string {
   const clean: string = value.trim().replace(/^['"]|['"]$/g, '');
   if (clean.length === 0 || clean.startsWith('data:')) return '';
@@ -229,6 +245,21 @@ export class GuozaokeService {
 
   static clearCookies(): void {
     try { webview.WebCookieManager.clearAllCookiesSync(); } catch (_) { }
+  }
+
+  static biliCookie(): string {
+    try { return webview.WebCookieManager.fetchCookieSync('https://www.bilibili.com'); }
+    catch (_) { return ''; }
+  }
+
+  static biliCsrf(): string {
+    const item = GuozaokeService.biliCookie().split(';').find((part: string) => part.trim().startsWith('bili_jct='));
+    return item ? item.trim().substring('bili_jct='.length) : '';
+  }
+
+  static biliLoggedIn(): boolean {
+    const cookie = GuozaokeService.biliCookie();
+    return cookie.includes('SESSDATA=') && GuozaokeService.biliCsrf().length > 0;
   }
 
   static async get(path: string): Promise<string> {
@@ -712,6 +743,44 @@ export class GuozaokeService {
     } finally {
       if (file) { try { fileIo.closeSync(file); } catch (_) {} }
     }
+  }
+
+  static async uploadBilibiliImage(uri: string): Promise<string> {
+    const csrf = GuozaokeService.biliCsrf();
+    if (uri.length === 0 || csrf.length === 0) return '';
+    let file: fileIo.File | undefined;
+    try {
+      file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
+      const size = fileIo.statSync(file.fd).size;
+      if (size <= 0 || size > 15 * 1024 * 1024) return '';
+      const bytes = new ArrayBuffer(size);
+      fileIo.readSync(file.fd, bytes);
+      const encoded = `data:image/jpeg;base64,${base64Encode(new Uint8Array(bytes))}`;
+      const body = `csrf=${encodeURIComponent(csrf)}&cover=${encodeURIComponent(encoded)}`;
+      const request: http.HttpRequest = http.createHttp();
+      try {
+        const response: http.HttpResponse = await request.request('https://api.bilibili.com/x/article/creative/article/upcover', {
+          method: http.RequestMethod.POST,
+          header: {
+            'User-Agent': 'Mozilla/5.0 (HarmonyOS; Mobile) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
+            'Referer': 'https://www.bilibili.com/',
+            'Origin': 'https://www.bilibili.com',
+            'Cookie': GuozaokeService.biliCookie(),
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Accept': 'application/json'
+          },
+          extraData: body,
+          connectTimeout: 12000,
+          readTimeout: 120000,
+          expectDataType: http.HttpDataType.STRING
+        });
+        const text: string = response.result as string;
+        const code = text.match(/"code"\s*:\s*0/i);
+        const url = text.match(/"url"\s*:\s*"(https?:\\?\/\\?\/[^"\\]+)"/i);
+        return code && url && url.length > 1 ? url[1].replace(/\\\//g, '/') : '';
+      } finally { request.destroy(); }
+    } catch (_) { return ''; }
+    finally { if (file) { try { fileIo.closeSync(file); } catch (_) {} } }
   }
 
   static xsrf(): string {
