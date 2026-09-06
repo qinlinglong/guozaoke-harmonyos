@@ -188,11 +188,24 @@ function editableTopicText(value: string): string {
   // removes them from text because it displays `topic.images` natively, but
   // the editor needs the original Markdown to keep images editable/savable.
   const withImages: string = value
-    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>[\s\S]*?<img\b[^>]*src=["']([^"']+)["'][^>]*>[\s\S]*?<\/a>/gi,
+    // Only consume an anchor when it directly wraps one image. A broad
+    // anchor/img expression could swallow neighboring paragraphs during edit
+    // echo when the H5 markup contains a larger linked block.
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>\s*<img\b[^>]*src=["']([^"']+)["'][^>]*>\s*<\/a>/gi,
       (_all: string, href: string, src: string) => `[![](${src})](${href || src})`)
     .replace(/<img\b[^>]*src=["']([^"']+)["'][^>]*>/gi,
       (_all: string, src: string) => `[![](${src})](${src})`);
-  return htmlText(withImages, false)
+  // Convert formatting tags to the Markdown understood by the native editor
+  // before stripping the remaining presentation-only HTML.
+  const withMarkdown: string = withImages
+    .replace(/<(?:strong|b)\b[^>]*>/gi, '**').replace(/<\/(?:strong|b)>/gi, '**')
+    .replace(/<(?:em|i)\b[^>]*>/gi, '*').replace(/<\/(?:em|i)>/gi, '*')
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      (_all: string, href: string, label: string) => {
+        const cleanLabel: string = htmlText(label, false).trim();
+        return cleanLabel.length > 0 ? `[${cleanLabel}](${href})` : '';
+      });
+  return htmlText(withMarkdown, false)
     .replace(/\s*本帖最后于[\s\S]*?编辑\s*$/i, '')
     .trim();
 }
