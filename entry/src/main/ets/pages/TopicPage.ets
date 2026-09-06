@@ -282,6 +282,7 @@ struct TopicPage {
   @StorageLink('commentsOrderDesc') commentsOrderDesc: boolean = false;
   @StorageLink('imageBedApiKey') imageBedApiKey: string = '';
   @State uploadingImage: boolean = false;
+  @State commentPreviewing: boolean = false;
   @State editingReplyId: string = '';
   private loadedOnce: boolean = false;
 
@@ -533,6 +534,7 @@ struct TopicPage {
   private dismissComposer(clearDraft: boolean = false): void {
     try { this.getUIContext().getFocusController().clearFocus(); } catch (_) {}
     this.composerOpen = false;
+    this.commentPreviewing = false;
     if (clearDraft) {
       this.replyTarget = '';
       this.comment = '';
@@ -585,6 +587,7 @@ struct TopicPage {
   }
 
   private composerHeight(): number {
+    if (this.commentPreviewing) return 190;
     const lines: number = Math.min(6, Math.max(2, Math.ceil(this.comment.length / 28) + 1));
     return 34 + lines * 21;
   }
@@ -811,7 +814,15 @@ struct TopicPage {
               .onClick(() => this.dismissComposer(true))
             Image($r('app.media.ic_image')).width(22).height(22).fillColor(this.uploadingImage ? '#A0A5AB' : this.themeColor)
               .margin({ left: 8, right: 10 }).onClick(() => this.chooseCommentImage())
-            TextArea({ placeholder: this.editingReplyId.length > 0 ? '编辑回复…' : (this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容'), text: this.comment })
+            Image($r('app.media.ic_preview')).width(22).height(22).fillColor(this.commentPreviewing ? this.themeColor : '#7B8794')
+              .margin({ right: 10 }).onClick(() => this.commentPreviewing = !this.commentPreviewing)
+            if (this.commentPreviewing) {
+              Column() {
+                this.nativeDetailContent(this.comment, 14, 21)
+              }.layoutWeight(1).height(150).padding({ left: 10, right: 10, top: 8, bottom: 8 })
+                .backgroundColor('#F5F6F8').borderRadius(8)
+            } else {
+              TextArea({ placeholder: this.editingReplyId.length > 0 ? '编辑回复…' : (this.replyTarget.length > 0 ? `回复 ${this.replyTarget}…` : '请输入评论内容'), text: this.comment })
               .id('commentInput')
               .focusOnTouch(true)
               .fontSize(15)
@@ -834,6 +845,7 @@ struct TopicPage {
                 if (event.type === KeyType.Up) this.dismissComposer();
                 return true;
               })
+            }
             Row() {
               Image($r(this.editingReplyId.length > 0 ? 'app.media.ic_save' : 'app.media.ic_reply'))
                 .width(20).height(20).fillColor(Color.White)
