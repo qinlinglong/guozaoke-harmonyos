@@ -93,11 +93,17 @@ entry/src/main/resources/         字符串、图标和占位图
 
 <table>
   <tr>
-    <td align="center"><img src="docs/images/topic-title.png" width="240" alt="主题标题页面"><br>主题标题页面</td>
-    <td align="center"><img src="docs/images/topic-detail.png" width="240" alt="主题正文页面"><br>主题正文页面</td>
-    <td align="center"><img src="docs/images/topic-comments.png" width="240" alt="评论区域页面"><br>评论区域页面</td>
+    <td align="center"><img src="docs/images/topic-title.png" width="240" alt="B站图床示例"><br>B站图床示例</td>
+    <td align="center"><img src="docs/images/topic-detail.png" width="240" alt="首页图"><br>首页图</td>
+    <td align="center"><img src="docs/images/topic-comments.png" width="240" alt="详情图"><br>详情图</td>
   </tr>
 </table>
+
+原始图片来源：
+
+- [B站图床示例](https://article.biliimg.com/bfs/new_dyn/23627ecaf55c0394deb2805b79832a0d7325469.jpg)
+- [首页图](https://article.biliimg.com/bfs/new_dyn/3f0e8df6a24a38edda7c7c7dc12f73077325469.jpg)
+- [详情图](https://article.biliimg.com/bfs/new_dyn/74e041dfe2ad1170c0700b25150188127325469.jpg)
 
 ## Privacy
 
